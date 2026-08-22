@@ -1,0 +1,18 @@
+body {
+  margin: 0;
+  background: #0b0a0b;
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+a {
+  color: #d9b26a;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #efd4a0;
+}
+
+* {
+  box-sizing: border-box;
+}
