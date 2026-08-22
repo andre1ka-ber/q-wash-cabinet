@@ -152,3 +152,11 @@ See `PLAN.md` for the full plan and build order.
   readability regression, so this is a deliberate inner cap, not the same
   bug. Re-verified all three tabs in the browser at the real 1920px
   viewport this session was running at. `tsc -b`/`oxlint` clean.
+- 2026-08-22 (later still, same day) — Discoverability fix on Услуги,
+  flagged by the user: clicking a service row opened the edit drawer with
+  no visual affordance suggesting it was clickable. Added an explicit
+  "Изменить" `GhostButton` per row (new 5th grid column) that opens the
+  same drawer; left the row itself still clickable too rather than
+  removing it, so this is additive, not a replacement. `tsc -b`/`oxlint`
+  clean, re-verified in the browser (button opens the correct service
+  pre-filled).

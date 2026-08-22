@@ -8,6 +8,7 @@ import {
   DataTable,
   DataTableHeaderRow,
   DataTableRow,
+  GhostButton,
   PrimaryButton,
   Toggle,
   type Service,
@@ -17,7 +18,7 @@ import { pluralRu } from '../../shared/pluralRu';
 import { formatSomoni } from '../../shared/format';
 import { ServiceDrawer } from './ServiceDrawer';
 
-const TABLE_COLUMNS = '2.4fr 1fr 2.4fr 0.6fr';
+const TABLE_COLUMNS = '2.2fr 1fr 2.2fr 0.6fr 0.8fr';
 
 function ActiveToggleCell({ service }: { service: Service }) {
   const washingPointId = useMyWashingPointId();
@@ -67,7 +68,7 @@ export function ServicesPage() {
       <DataTable>
         <DataTableHeaderRow
           gridTemplateColumns={TABLE_COLUMNS}
-          columns={['Услуга', 'Длительность', 'Цены', 'Активна']}
+          columns={['Услуга', 'Длительность', 'Цены', 'Активна', '']}
         />
         {servicesQuery.isLoading ? (
           <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Загрузка…</div>
@@ -113,6 +114,18 @@ export function ServicesPage() {
               </div>
               <div onClick={(e) => e.stopPropagation()}>
                 <ActiveToggleCell service={s} />
+              </div>
+              <div>
+                <GhostButton
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDrawerService(s);
+                  }}
+                  style={{ padding: '7px 14px', fontSize: 12 }}
+                >
+                  Изменить
+                </GhostButton>
               </div>
             </DataTableRow>
           ))
