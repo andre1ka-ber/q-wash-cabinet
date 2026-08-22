@@ -116,11 +116,24 @@ q-wash-cabinet/
       `GET/POST/PATCH/DELETE .../photos` + `PATCH /washing-points/{id}`
       (description/amenities) instead of a mock-first pass.
 - [~] **I — Polish**: loading/error/empty states were built inline per
-      screen as each tab landed, not as a separate pass — no dedicated
-      polish sweep has happened yet. Per-tab save affordance matches the
-      "Save model" decision below (instant toggles for services-active and
-      photo cover/delete; per-tab "Сохранить" for hours and
-      description/amenities).
+      screen as each tab landed, not as a separate pass. Per-tab save
+      affordance matches the "Save model" decision below (instant toggles
+      for services-active and photo cover/delete; per-tab "Сохранить" for
+      hours and description/amenities). Two incremental fixes landed after
+      user review, not from a dedicated sweep: made Часы работы/Фото и
+      описание span full width like Услуги (both had picked an arbitrary,
+      inconsistent `maxWidth` while being built independently), and added
+      an explicit "Изменить" button per row on Услуги (row-click alone
+      wasn't a discoverable enough affordance). Still open, not yet
+      addressed: a `worker`-role account has never been tested (no seeded
+      one exists locally); `deactivateService`
+      (`DELETE /services/{id}` in `q-wash-shared`) is exported but unused
+      — the active/inactive `Toggle` already covers deactivation via
+      `PATCH`, so it may be dead weight rather than a real gap; the 409
+      error paths (deleting a service's last price option, or one that's
+      in use) have never been exercised in the browser, only reasoned
+      about; no Go-side regression test guards the `is_open` GORM bug
+      fixed this session from recurring.
 
 See `PROGRESS.md` for the full build log, including two real backend bugs
 found and fixed while building this app (a missing `washing_point_id` on
