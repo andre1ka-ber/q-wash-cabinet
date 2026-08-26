@@ -32,6 +32,11 @@ status pill, Save button) over a 4-tab layout:
    label), status badge (Открыт/Закрыт), services-count/slot-length/
    today's-bookings stats, "Настроить"/"Закрыть" actions, plus a
    dashed "+ Добавить бокс" card. Needs the new `Box` entity.
+   **As built (2026-08-26)**: the services-count/slot-length/
+   today's-bookings stats were dropped — the real `Box` API response is
+   just `{id, number, label, is_open}`, none of that is per-box data on
+   the backend, and `PLAN_WEB_APPS.md` explicitly defers per-box services.
+   Decided with the user rather than guessed — see `PROGRESS.md`.
 3. **Часы работы (hours)** — one row per weekday: name, an on/off toggle,
    a time-range bar with a visual break-window carve-out, a note column.
    Needs `WashingPointSchedule` — this is the one screen whose backend
@@ -78,8 +83,8 @@ q-wash-cabinet/
       hours/                  weekday schedule editor — real data
       photos/                 photo grid + description + amenities —
                              real data
-      (no boxes/ yet — still blocked on the Box entity, drawn as an inert
-       nav item instead of a feature dir until phase 6 ships)
+      boxes/                  box card grid + label-edit drawer — real
+                             data
     shared/
       layout/                Header + tab-bar shell specific to this app
       useMyWashingPoint.ts    resolves the logged-in staff/worker's own
@@ -99,13 +104,15 @@ q-wash-cabinet/
 - [x] **B — Услуги tab, real data**: this is the one tab that can go
       straight to real `q-wash-api` calls from day one — existing
       Service/ServicePriceOption endpoints already support it.
-- [~] **C/D — Боксы**: still fully blocked — `PLAN_WEB_APPS.md` phase 6
-      (`Box` entity) hasn't shipped. Skipped building even a mock-data
-      version of this tab (deviation from the original plan below) — drawn
-      as an inert, unclickable nav item instead (same pattern
-      `q-wash-admin`'s sidebar uses for its own not-yet-built items), so
-      there's nothing to throw away once phase 6 ships and this becomes a
-      real single build step.
+- [x] **C/D — Боксы**: built 2026-08-26, going straight to real data (no
+      mock-first step) — `PLAN_WEB_APPS.md` phase 6 (`Box` entity) had
+      already shipped in `q-wash-api` since 2026-08-22, this app's own docs
+      just hadn't caught up. Card grid (`BoxesPage.tsx`), label-only edit
+      drawer (`BoxDrawer.tsx`, number is server-assigned) — see
+      `PROGRESS.md` for the full write-up, including the three
+      mock-vs-real-API gaps resolved with the user (dropped the mock's
+      per-box stats, split Настроить/Закрыть into a drawer + a direct
+      toggle).
 - [x] **E/F — Часы работы, real data**: by the time this tab was built,
       `PLAN_WEB_APPS.md` phase 5 (per-weekday schedule) had already
       shipped, so the originally-planned "mock data first, wire up later"

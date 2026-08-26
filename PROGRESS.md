@@ -4,8 +4,7 @@ See `PLAN.md` for the full plan and build order.
 
 - [x] Phase A — Scaffold
 - [x] Phase B — Услуги tab, real data
-- [~] Phase C/D — Боксы (still blocked, see PLAN.md — drawn as an inert
-      nav item, not a mock-data build)
+- [x] Phase C/D — Боксы, real data (unblocked — see PLAN.md and log below)
 - [x] Phase E/F — Часы работы, real data (built as one step, not
       mock-then-wire — see PLAN.md)
 - [x] Phase G/H — Фото и описание, real data (same)
@@ -160,3 +159,57 @@ See `PLAN.md` for the full plan and build order.
   removing it, so this is additive, not a replacement. `tsc -b`/`oxlint`
   clean, re-verified in the browser (button opens the correct service
   pre-filled).
+- 2026-08-26 — **Боксы tab built, unblocking Phase C/D**: the backend
+  blocker (`Box` entity, `PLAN_WEB_APPS.md` phase 6) had actually shipped
+  in `q-wash-api` on 2026-08-22, same day as this app's main build
+  session, but this app's own docs hadn't been updated to reflect it — the
+  tab was still drawn inert. Re-verified the backend first (ran
+  `make test-integration` against real Postgres for the first time this
+  session, previously blocked by Docker being outside this sandbox's
+  shell allowlist — see `q-wash-api/PROGRESS.md`): all green, including
+  `TestBoxes_CRUDOwnershipAndAvailabilityFilter`.
+
+  Grilled three open questions with the user before building (the mock's
+  Боксы design assumes fields the `Box` API doesn't return): (1) dropped
+  the mock's per-box services-count/slot-length/today's-bookings stats
+  entirely — the API response is just `{id, number, label, is_open}`, and
+  `PLAN_WEB_APPS.md` already defers per-box services ("all open boxes
+  support all of the point's active services"), so a per-box count would
+  be meaningless; (2) "Настроить" opens a drawer that edits only `label`
+  (same right-side-drawer pattern as `ServiceDrawer`, new `BoxDrawer.tsx`,
+  used for both create and edit); "Закрыть"/"Открыть" is a direct
+  one-click `GhostButton` on the card toggling `is_open`, no drawer
+  round-trip, matching the mock's two separate actions and the
+  instant-toggle precedent from Услуги's active switch.
+
+  New `features/boxes/{BoxesPage,BoxDrawer}.tsx`. `BoxesPage` is a card
+  grid (`repeat(auto-fill, minmax(220px, 1fr))`, same layout primitive as
+  Фото и описание's photo grid) — each card shows "Бокс {number}", the
+  label (or "Без описания"), a `StatusPill` (Открыт/ok, Закрыт/bad), and
+  the two actions; a dashed "+ Добавить бокс" card matches the photo
+  grid's "+ Ещё" tile. `number` is never client-editable (server-assigned
+  per the API), so `BoxDrawer` only ever has a label field — deliberately
+  narrower than `ServiceDrawer`. No delete affordance built — the mock
+  itself doesn't show one for boxes (unlike photos), so this stays out of
+  scope rather than being added speculatively.
+
+  `TabBar.tsx`'s Боксы entry switched from the inert placeholder branch to
+  a real `to: '/boxes'` route; `App.tsx` gained the matching
+  `<Route path="boxes">`. `q-wash-shared` gained the `boxes` resource
+  module in the same session (see its own `PROGRESS.md`).
+
+  **Verification**: real end-to-end against a locally seeded backend
+  (`make seed`/`make run` in `q-wash-api`, `docker compose up` for
+  Postgres). Logged in as `staff`, opened Боксы: both seeded boxes
+  rendered correctly (number, "Без описания", Открыт). Closed Бокс 1 —
+  pill flipped to Закрыт, button relabeled Открыть, confirmed via a fresh
+  page reload the state persisted server-side. Opened Бокс 2's Настроить
+  drawer, set a label, saved — card updated to show it. Added a new box
+  via "+ Добавить бокс" — server auto-numbered it Бокс 3, exactly as the
+  auto-numbering guarantee promises. No console errors on load or through
+  the flow. Reopened all three boxes afterward to leave seed data clean.
+  `tsc -b`/`oxlint` clean in both `q-wash-shared` and `q-wash-cabinet`.
+
+  **Still open**: no delete UI (see scope note above); a `worker`-role
+  account has still never been exercised in this app (pre-existing gap,
+  not new).

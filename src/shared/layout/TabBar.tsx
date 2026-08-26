@@ -7,11 +7,9 @@ interface TabItem {
   to?: string;
 }
 
-// "Боксы" is drawn but inert — its backend (Box entity, PLAN_WEB_APPS.md
-// phase 6) isn't built yet, see q-wash-cabinet/PLAN.md.
 const TABS: TabItem[] = [
   { key: 'services', label: 'Услуги', to: '/' },
-  { key: 'boxes', label: 'Боксы' },
+  { key: 'boxes', label: 'Боксы', to: '/boxes' },
   { key: 'hours', label: 'Часы работы', to: '/hours' },
   { key: 'photos', label: 'Фото и описание', to: '/photos' },
 ];

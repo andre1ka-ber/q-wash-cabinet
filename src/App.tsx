@@ -6,6 +6,7 @@ import { authStore, useAuth, color, font, GhostButton } from 'q-wash-shared';
 import { CabinetShell } from './shared/layout/CabinetShell';
 import { LoginPage } from './features/auth/LoginPage';
 import { ServicesPage } from './features/services/ServicesPage';
+import { BoxesPage } from './features/boxes/BoxesPage';
 import { HoursPage } from './features/hours/HoursPage';
 import { PhotosPage } from './features/photos/PhotosPage';
 
@@ -93,6 +94,7 @@ function AppRoutes() {
         }
       >
         <Route index element={<ServicesPage />} />
+        <Route path="boxes" element={<BoxesPage />} />
         <Route path="hours" element={<HoursPage />} />
         <Route path="photos" element={<PhotosPage />} />
       </Route>
