@@ -267,3 +267,37 @@ See `PLAN.md` for the full plan and build order.
 
   `tsc -b` and `oxlint` clean throughout (`q-wash-shared` untouched, no
   regressions).
+
+- 2026-08-31 — **Test infrastructure added** (this app had none). Vitest +
+  React Testing Library + jsdom, `npm test` runs `vitest run`. New devDeps:
+  `vitest`, `@testing-library/react`, `@testing-library/jest-dom`,
+  `@testing-library/user-event`, `jsdom` — none of them runtime deps.
+  `vitest.config.ts` + `vitest.setup.ts` (jest-dom matchers), and
+  `"@testing-library/jest-dom"` added to `tsconfig.app.json`'s `types` so
+  `tsc -b` recognizes the matcher types.
+
+  Test coverage added, prioritizing the Phase I `onError` paths above
+  (highest regression risk) plus the two pure helpers:
+  - `shared/format.test.ts` — `formatSomoni` (whole unit, fractional,
+    zero, negative)
+  - `shared/pluralRu.test.ts` — all four Russian plural-form branches,
+    including the 11-14 teens exception
+  - `features/photos/PhotosPage.test.tsx` — loading state, empty state,
+    and a failed delete mutation (mocked `ApiError` rejection) surfacing
+    its message in the UI
+  - `features/services/ServicesPage.test.tsx` — empty state, failed
+    toggle mutation surfaces its message
+  - `features/boxes/BoxesPage.test.tsx` — empty state, failed toggle
+    mutation surfaces its message
+
+  All component tests mock `q-wash-shared`'s API functions and `useAuth`
+  only (via `vi.mock` + `importOriginal`, keeping the real UI components/
+  theme tokens/`ApiError` class) — the true external boundary from this
+  app's point of view, per `docs/testing.md`'s mocking policy. Nothing
+  under test is itself mocked.
+
+  `npm test`: 5 files, 15 tests, all passing. `npm run lint` (oxlint) and
+  `npx tsc -b --noEmit`: both clean.
+
+  Out of scope, per plan: `HoursPage.tsx` (already had this error pattern
+  before Phase I) and drawer form-validation coverage — left for later.
