@@ -1,16 +1,35 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { color, radius, listBoxes, updateBox, GhostButton, PrimaryButton, StatusPill, type Box } from 'q-wash-shared';
+import {
+  color,
+  radius,
+  ApiError,
+  listBoxes,
+  updateBox,
+  GhostButton,
+  PrimaryButton,
+  StatusPill,
+  type Box,
+} from 'q-wash-shared';
 import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
 import { pluralRu } from '../../shared/pluralRu';
 import { BoxDrawer } from './BoxDrawer';
 
-function BoxCard({ box, onConfigure }: { box: Box; onConfigure: () => void }) {
+function BoxCard({
+  box,
+  onConfigure,
+  onError,
+}: {
+  box: Box;
+  onConfigure: () => void;
+  onError: (message: string) => void;
+}) {
   const washingPointId = useMyWashingPointId();
   const queryClient = useQueryClient();
   const toggleMutation = useMutation({
     mutationFn: (nextOpen: boolean) => updateBox(washingPointId, box.id, { is_open: nextOpen }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cabinet', 'boxes', washingPointId] }),
+    onError: (err) => onError(err instanceof ApiError ? err.message : 'Не удалось изменить статус бокса'),
   });
 
   return (
@@ -63,6 +82,7 @@ function BoxCard({ box, onConfigure }: { box: Box; onConfigure: () => void }) {
 export function BoxesPage() {
   const washingPointId = useMyWashingPointId();
   const [drawerBox, setDrawerBox] = useState<Box | 'new' | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const boxesQuery = useQuery({
     queryKey: ['cabinet', 'boxes', washingPointId],
@@ -86,13 +106,17 @@ export function BoxesPage() {
       {boxesQuery.isError && (
         <div style={{ color: color.bad, fontSize: 13, marginBottom: 14 }}>Не удалось загрузить список боксов</div>
       )}
+      {error && <div style={{ color: color.bad, fontSize: 13, marginBottom: 14 }}>{error}</div>}
 
       {boxesQuery.isLoading ? (
         <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Загрузка…</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+          {boxes.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', color: color.textFaint, fontSize: 13 }}>Пока нет ни одного бокса</div>
+          )}
           {boxes.map((box) => (
-            <BoxCard key={box.id} box={box} onConfigure={() => setDrawerBox(box)} />
+            <BoxCard key={box.id} box={box} onConfigure={() => setDrawerBox(box)} onError={setError} />
           ))}
           <div
             onClick={() => setDrawerBox('new')}

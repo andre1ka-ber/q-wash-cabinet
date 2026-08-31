@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   color,
   radius,
+  ApiError,
   listServices,
   updateService,
   DataTable,
@@ -20,27 +21,27 @@ import { ServiceDrawer } from './ServiceDrawer';
 
 const TABLE_COLUMNS = '2.2fr 1fr 2.2fr 0.6fr 0.8fr';
 
-function ActiveToggleCell({ service }: { service: Service }) {
+function ActiveToggleCell({ service, onError }: { service: Service; onError: (message: string) => void }) {
   const washingPointId = useMyWashingPointId();
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (next: boolean) => updateService(service.id, { is_active: next }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cabinet', 'services', washingPointId] }),
+    onError: (err) => onError(err instanceof ApiError ? err.message : 'Не удалось изменить статус услуги'),
   });
   return (
-    <div title={mutation.isError ? 'Не удалось сохранить, попробуйте ещё раз' : undefined}>
-      <Toggle
-        checked={mutation.isPending ? !service.is_active : service.is_active}
-        onChange={(next) => mutation.mutate(next)}
-        disabled={mutation.isPending}
-      />
-    </div>
+    <Toggle
+      checked={mutation.isPending ? !service.is_active : service.is_active}
+      onChange={(next) => mutation.mutate(next)}
+      disabled={mutation.isPending}
+    />
   );
 }
 
 export function ServicesPage() {
   const washingPointId = useMyWashingPointId();
   const [drawerService, setDrawerService] = useState<Service | 'new' | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const servicesQuery = useQuery({
     queryKey: ['cabinet', 'services', washingPointId],
@@ -64,6 +65,7 @@ export function ServicesPage() {
       {servicesQuery.isError && (
         <div style={{ color: color.bad, fontSize: 13, marginBottom: 14 }}>Не удалось загрузить список услуг</div>
       )}
+      {error && <div style={{ color: color.bad, fontSize: 13, marginBottom: 14 }}>{error}</div>}
 
       <DataTable>
         <DataTableHeaderRow
@@ -113,7 +115,7 @@ export function ServicesPage() {
                 ))}
               </div>
               <div onClick={(e) => e.stopPropagation()}>
-                <ActiveToggleCell service={s} />
+                <ActiveToggleCell service={s} onError={setError} />
               </div>
               <div>
                 <GhostButton

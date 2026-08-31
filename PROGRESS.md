@@ -8,7 +8,7 @@ See `PLAN.md` for the full plan and build order.
 - [x] Phase E/F — Часы работы, real data (built as one step, not
       mock-then-wire — see PLAN.md)
 - [x] Phase G/H — Фото и описание, real data (same)
-- [~] Phase I — Polish (inline per-screen so far, no dedicated pass yet)
+- [x] Phase I — Polish (dedicated pass, see log below)
 
 ## Log
 
@@ -213,3 +213,57 @@ See `PLAN.md` for the full plan and build order.
   **Still open**: no delete UI (see scope note above); a `worker`-role
   account has still never been exercised in this app (pre-existing gap,
   not new).
+
+- 2026-08-31 — **Phase I dedicated polish pass**, closing five concrete
+  gaps found by a fresh screen-by-screen audit (compared against this app's
+  own established conventions — no toast/confirm-dialog component exists
+  anywhere on the platform, confirmed via a cross-app grep, so their
+  absence here was never a gap to begin with):
+  1. `features/photos/PhotosPage.tsx`'s `PhotoTile` — `coverMutation` and
+     `deleteMutation` had no `onError` at all (silent failure). Added,
+     copying the exact pattern the same file's `uploadMutation`/
+     `saveMutation` already used (`onError: (err) => onError(...)`, now
+     lifted to a prop since `PhotoTile` is a child component without its
+     own error state).
+  2. `features/services/ServicesPage.tsx`'s `ActiveToggleCell` — failure
+     only surfaced via a hover `title` tooltip most users would never see.
+     Replaced with the visible-inline-text pattern `HoursPage.tsx` already
+     used, via the same lifted-`onError`-prop approach as #1 (`ServicesPage`
+     gained its own `error` state, rendered the same way `BoxesPage`/
+     `PhotosPage` already render theirs).
+  3. `features/boxes/BoxesPage.tsx`'s `BoxCard` toggle — zero error handling
+     of any kind. Same fix and lifted-prop pattern as #1/#2.
+  4. `PhotosPage.tsx` — no loading indicator while `photosQuery` was
+     pending, unlike every other tab. Added the identical
+     `{query.isLoading ? <div>Загрузка…</div> : ...}` pattern already used
+     in `ServicesPage`/`BoxesPage`/`HoursPage`.
+  5. Empty-state text inconsistency — `ServicesPage` shows "Пока нет ни
+     одной услуги" when empty; `BoxesPage`/`PhotosPage` showed nothing but
+     the add-tile. Added matching one-line messages to both.
+
+  Confirmed **not** gaps, no action taken: the two items `PLAN.md`'s own
+  "Still open" note already flagged — no box-delete UI (matches the mock,
+  deliberate) and the untested `worker`-role session (see verification
+  below, not a code gap) — plus 409 error paths on `ServiceDrawer` (already
+  handled by its existing generic `onError`) and the unused
+  `deactivateService` export in `q-wash-shared` (dead code, out of this
+  app's scope to remove).
+
+  **Live verification**, staff account against a locally seeded backend
+  (`make seed`/`make run` in `q-wash-api`, `npm run dev` here):
+  killed the running `q-wash-api` process and, with it down, triggered each
+  of the three new error paths for real — Услуги's active toggle, Боксы's
+  open/close toggle, and Фото's delete button all showed a visible
+  "Не удалось связаться с сервером" message where before there was silence
+  or (for services) only a hover tooltip. Restarted the API between each
+  check and confirmed the underlying happy path still worked (toggled a
+  service active, closed then reopened a box, both persisting correctly
+  server-side on reload). Logged in as the seeded `worker` account
+  (previously never exercised in this app): reached the full app with all
+  four tabs, no console errors — closes that gap as "already correct,
+  just untested," matching what the code audit had already found
+  (`App.tsx` already gates staff-or-worker). No console errors at any
+  point in this pass (`onlyErrors: true`).
+
+  `tsc -b` and `oxlint` clean throughout (`q-wash-shared` untouched, no
+  regressions).

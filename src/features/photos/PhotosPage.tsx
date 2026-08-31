@@ -21,17 +21,27 @@ import { useMyWashingPoint, useMyWashingPointId } from '../../shared/useMyWashin
 // lookup table, so staff can also add their own via the input below.
 const SUGGESTED_AMENITIES = ['Зона ожидания', 'Кофе', 'Wi-Fi', 'Кулер с водой', 'Детская зона', 'Оплата картой'];
 
-function PhotoTile({ photo, washingPointId }: { photo: Photo; washingPointId: string }) {
+function PhotoTile({
+  photo,
+  washingPointId,
+  onError,
+}: {
+  photo: Photo;
+  washingPointId: string;
+  onError: (message: string) => void;
+}) {
   const queryClient = useQueryClient();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['cabinet', 'photos', washingPointId] });
 
   const coverMutation = useMutation({
     mutationFn: () => updatePhoto(washingPointId, photo.id, { is_cover: true }),
     onSuccess: invalidate,
+    onError: (err) => onError(err instanceof ApiError ? err.message : 'Не удалось сделать фото обложкой'),
   });
   const deleteMutation = useMutation({
     mutationFn: () => deletePhoto(washingPointId, photo.id),
     onSuccess: invalidate,
+    onError: (err) => onError(err instanceof ApiError ? err.message : 'Не удалось удалить фото'),
   });
 
   return (
@@ -151,45 +161,52 @@ export function PhotosPage() {
           <div style={{ color: color.bad, fontSize: 13, marginBottom: 10 }}>Не удалось загрузить фотографии</div>
         )}
         {error && <div style={{ color: color.bad, fontSize: 13, marginBottom: 10 }}>{error}</div>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
-          {photos.map((photo) => (
-            <PhotoTile key={photo.id} photo={photo} washingPointId={washingPointId} />
-          ))}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              aspectRatio: '4 / 3',
-              borderRadius: radius.lg,
-              border: `1px dashed ${color.borderDashed}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: 6,
-              cursor: uploadMutation.isPending ? 'default' : 'pointer',
-              color: color.textFaint,
-              fontSize: 13,
-              opacity: uploadMutation.isPending ? 0.6 : 1,
-            }}
-          >
-            <span style={{ fontSize: 22 }}>+</span>
-            {uploadMutation.isPending ? 'Загружаем…' : 'Ещё фото'}
+        {photosQuery.isLoading ? (
+          <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Загрузка…</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+            {photos.length === 0 && (
+              <div style={{ gridColumn: '1 / -1', color: color.textFaint, fontSize: 13 }}>Пока нет ни одной фотографии</div>
+            )}
+            {photos.map((photo) => (
+              <PhotoTile key={photo.id} photo={photo} washingPointId={washingPointId} onError={setError} />
+            ))}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                aspectRatio: '4 / 3',
+                borderRadius: radius.lg,
+                border: `1px dashed ${color.borderDashed}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                gap: 6,
+                cursor: uploadMutation.isPending ? 'default' : 'pointer',
+                color: color.textFaint,
+                fontSize: 13,
+                opacity: uploadMutation.isPending ? 0.6 : 1,
+              }}
+            >
+              <span style={{ fontSize: 22 }}>+</span>
+              {uploadMutation.isPending ? 'Загружаем…' : 'Ещё фото'}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) {
+                  setError(null);
+                  uploadMutation.mutate(file);
+                }
+              }}
+            />
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (file) {
-                setError(null);
-                uploadMutation.mutate(file);
-              }
-            }}
-          />
-        </div>
+        )}
       </div>
 
       <div style={{ maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 20 }}>

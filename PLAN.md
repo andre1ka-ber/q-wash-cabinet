@@ -122,7 +122,7 @@ q-wash-cabinet/
       (photos) had also already shipped, so this went straight to real
       `GET/POST/PATCH/DELETE .../photos` + `PATCH /washing-points/{id}`
       (description/amenities) instead of a mock-first pass.
-- [~] **I — Polish**: loading/error/empty states were built inline per
+- [x] **I — Polish**: loading/error/empty states were built inline per
       screen as each tab landed, not as a separate pass. Per-tab save
       affordance matches the "Save model" decision below (instant toggles
       for services-active and photo cover/delete; per-tab "Сохранить" for
