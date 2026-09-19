@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { authStore, color, font, radius, ApiError, PrimaryButton } from 'q-wash-shared';
+import { authStore, color, font, radius, ApiError, PrimaryButton, LogoMark } from 'q-wash-shared';
 
 const inputStyle = {
   padding: '14px 16px',
@@ -57,22 +57,7 @@ export function LoginPage() {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              border: '1px solid rgba(217,178,106,.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: font.display,
-              color: color.gold,
-              fontSize: 20,
-            }}
-          >
-            К
-          </div>
+          <LogoMark size={44} />
           <div style={{ fontFamily: font.display, color: color.textPrimary, fontSize: 20 }}>Кабинет мойки</div>
         </div>
 

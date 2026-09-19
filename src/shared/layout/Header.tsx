@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { authStore, color, font, radius, updateWashingPoint, type WashingPoint } from 'q-wash-shared';
+import { authStore, color, font, radius, updateWashingPoint, type WashingPoint, LogoMark } from 'q-wash-shared';
 import { useMyWashingPointId } from '../useMyWashingPoint';
 
 export interface HeaderProps {
@@ -34,23 +34,7 @@ export function Header({ point }: HeaderProps) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            flex: '0 0 auto',
-            borderRadius: 11,
-            border: '1px solid rgba(217,178,106,.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: font.display,
-            color: color.gold,
-            fontSize: 18,
-          }}
-        >
-          К
-        </div>
+        <LogoMark size={40} />
         <div style={{ minWidth: 0 }}>
           <div
             style={{

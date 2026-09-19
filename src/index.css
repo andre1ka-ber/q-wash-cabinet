@@ -1,16 +1,16 @@
 body {
   margin: 0;
-  background: #0b0a0b;
-  font-family: 'Manrope', system-ui, sans-serif;
+  background: #0A0A09;
+  font-family: 'Sora', system-ui, sans-serif;
 }
 
 a {
-  color: #d9b26a;
+  color: #F2D14B;
   text-decoration: none;
 }
 
 a:hover {
-  color: #efd4a0;
+  color: #F8E489;
 }
 
 * {
