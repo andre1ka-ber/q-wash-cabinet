@@ -12,6 +12,7 @@ import {
   GhostButton,
   PrimaryButton,
   Toggle,
+  useIsMobile,
   type Service,
 } from 'q-wash-shared';
 import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
@@ -38,8 +39,68 @@ function ActiveToggleCell({ service, onError }: { service: Service; onError: (me
   );
 }
 
+function ServiceCard({
+  service,
+  onOpen,
+  onError,
+}: {
+  service: Service;
+  onOpen: () => void;
+  onError: (message: string) => void;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: radius.lg,
+        border: `1px solid ${color.border}`,
+        background: color.panel,
+        padding: 14,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+      }}
+    >
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <div onClick={onOpen} style={{ flex: 1, minWidth: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ color: color.textPrimaryAlt, fontSize: 14.5, fontWeight: 600 }}>{service.name}</div>
+          <div style={{ color: color.textFaint, fontSize: 12 }}>
+            {service.description ? `${service.description} · ` : ''}
+            {service.duration_minutes} мин
+          </div>
+        </div>
+        <div onClick={(e) => e.stopPropagation()}>
+          <ActiveToggleCell service={service} onError={onError} />
+        </div>
+      </div>
+      {service.price_options.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {service.price_options.map((p) => (
+            <span
+              key={p.id}
+              style={{
+                padding: '4px 9px',
+                borderRadius: radius.sm,
+                background: p.is_default ? color.warnBg : color.muteBg,
+                color: p.is_default ? color.warn : color.textTertiary,
+                fontSize: 12,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {p.name}: {formatSomoni(p.price_cents)}
+            </span>
+          ))}
+        </div>
+      )}
+      <GhostButton type="button" onClick={onOpen} style={{ padding: '9px 10px', fontSize: 12, textAlign: 'center' }}>
+        Изменить
+      </GhostButton>
+    </div>
+  );
+}
+
 export function ServicesPage() {
   const washingPointId = useMyWashingPointId();
+  const isMobile = useIsMobile();
   const [drawerService, setDrawerService] = useState<Service | 'new' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,17 +128,23 @@ export function ServicesPage() {
       )}
       {error && <div style={{ color: color.bad, fontSize: 13, marginBottom: 14 }}>{error}</div>}
 
-      <DataTable>
-        <DataTableHeaderRow
-          gridTemplateColumns={TABLE_COLUMNS}
-          columns={['Услуга', 'Длительность', 'Цены', 'Активна', '']}
-        />
-        {servicesQuery.isLoading ? (
-          <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Загрузка…</div>
-        ) : services.length === 0 ? (
-          <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Пока нет ни одной услуги</div>
-        ) : (
-          services.map((s, i) => (
+      {servicesQuery.isLoading ? (
+        <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Загрузка…</div>
+      ) : services.length === 0 ? (
+        <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Пока нет ни одной услуги</div>
+      ) : isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {services.map((s) => (
+            <ServiceCard key={s.id} service={s} onOpen={() => setDrawerService(s)} onError={setError} />
+          ))}
+        </div>
+      ) : (
+        <DataTable>
+          <DataTableHeaderRow
+            gridTemplateColumns={TABLE_COLUMNS}
+            columns={['Услуга', 'Длительность', 'Цены', 'Активна', '']}
+          />
+          {services.map((s, i) => (
             <DataTableRow key={s.id} gridTemplateColumns={TABLE_COLUMNS} isLast={i === services.length - 1}>
               <div onClick={() => setDrawerService(s)} style={{ cursor: 'pointer', minWidth: 0 }}>
                 <div style={{ color: color.textPrimaryAlt, fontSize: 14, fontWeight: 600 }}>{s.name}</div>
@@ -130,9 +197,9 @@ export function ServicesPage() {
                 </GhostButton>
               </div>
             </DataTableRow>
-          ))
-        )}
-      </DataTable>
+          ))}
+        </DataTable>
+      )}
 
       {drawerService && (
         <ServiceDrawer

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { color } from 'q-wash-shared';
+import { color, useIsMobile } from 'q-wash-shared';
 
 interface TabItem {
   key: string;
@@ -15,13 +15,19 @@ const TABS: TabItem[] = [
 ];
 
 export function TabBar() {
+  // All four labels overflow the viewport well before 375px (padding + gaps
+  // alone exceed a phone's content width), so mobile needs a horizontally
+  // scrollable strip instead of the desktop's fixed-width flex row.
+  const isMobile = useIsMobile();
+
   return (
     <div
       style={{
         display: 'flex',
         gap: 4,
-        padding: '0 32px',
+        padding: isMobile ? '0 18px' : '0 32px',
         borderBottom: `1px solid ${color.borderAlt}`,
+        overflowX: isMobile ? 'auto' : undefined,
       }}
     >
       {TABS.map((tab) =>
@@ -38,6 +44,8 @@ export function TabBar() {
               color: isActive ? color.textPrimary : color.textMuted,
               borderBottom: `2px solid ${isActive ? color.gold : 'transparent'}`,
               marginBottom: -1,
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             })}
           >
             {tab.label}
@@ -51,6 +59,8 @@ export function TabBar() {
               fontWeight: 600,
               color: color.textDim,
               cursor: 'default',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             {tab.label}

@@ -261,7 +261,7 @@ export function PhotosPage() {
               );
             })}
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
             <input
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}

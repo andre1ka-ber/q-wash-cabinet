@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { color, radius, ApiError, getSchedule, replaceSchedule, PrimaryButton, Toggle, type ScheduleRow } from 'q-wash-shared';
+import {
+  color,
+  radius,
+  ApiError,
+  getSchedule,
+  replaceSchedule,
+  PrimaryButton,
+  Toggle,
+  useIsMobile,
+  type ScheduleRow,
+} from 'q-wash-shared';
 import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
 
 const WEEKDAY_LABELS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
@@ -28,6 +38,7 @@ function rowHasBreak(row: ScheduleRow): boolean {
 
 export function HoursPage() {
   const washingPointId = useMyWashingPointId();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const scheduleQuery = useQuery({
     queryKey: ['cabinet', 'schedule', washingPointId],
@@ -112,87 +123,117 @@ export function HoursPage() {
             overflow: 'hidden',
           }}
         >
-          {rows.map((row, i) => (
-            <div
-              key={row.weekday}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '160px 44px 260px 1fr',
-                alignItems: 'center',
-                gap: 18,
-                padding: '16px 20px',
-                borderBottom: i === rows.length - 1 ? 'none' : `1px solid ${color.rowBorder}`,
-              }}
-            >
-              <div style={{ color: color.textPrimaryAlt, fontSize: 14, fontWeight: 600 }}>
-                {WEEKDAY_LABELS[row.weekday]}
+          {rows.map((row, i) => {
+            const timesRow = (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="time"
+                  style={timeInputStyle}
+                  value={row.open_time ?? '08:00'}
+                  onChange={(e) => updateRow(row.weekday, { open_time: e.target.value })}
+                />
+                <span style={{ color: color.textFaint, fontSize: 13 }}>—</span>
+                <input
+                  type="time"
+                  style={timeInputStyle}
+                  value={row.close_time ?? '20:00'}
+                  onChange={(e) => updateRow(row.weekday, { close_time: e.target.value })}
+                />
               </div>
-              <Toggle checked={row.is_open} onChange={(next) => toggleOpen(row.weekday, next)} />
-              {row.is_open ? (
-                <>
+            );
+            const breakRow = (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: isMobile ? 'wrap' : undefined }}>
+                <div
+                  onClick={() => toggleBreak(row.weekday, !rowHasBreak(row))}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    cursor: 'pointer',
+                    color: color.textMuted,
+                    fontSize: 12,
+                    flex: '0 0 auto',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 15,
+                      height: 15,
+                      borderRadius: 4,
+                      border: `1px solid ${rowHasBreak(row) ? color.gold : color.borderStrong}`,
+                      background: rowHasBreak(row) ? color.gold : 'transparent',
+                    }}
+                  />
+                  Перерыв
+                </div>
+                {rowHasBreak(row) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input
                       type="time"
                       style={timeInputStyle}
-                      value={row.open_time ?? '08:00'}
-                      onChange={(e) => updateRow(row.weekday, { open_time: e.target.value })}
+                      value={row.break_start ?? '13:00'}
+                      onChange={(e) => updateRow(row.weekday, { break_start: e.target.value })}
                     />
                     <span style={{ color: color.textFaint, fontSize: 13 }}>—</span>
                     <input
                       type="time"
                       style={timeInputStyle}
-                      value={row.close_time ?? '20:00'}
-                      onChange={(e) => updateRow(row.weekday, { close_time: e.target.value })}
+                      value={row.break_end ?? '14:00'}
+                      onChange={(e) => updateRow(row.weekday, { break_end: e.target.value })}
                     />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div
-                      onClick={() => toggleBreak(row.weekday, !rowHasBreak(row))}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 7,
-                        cursor: 'pointer',
-                        color: color.textMuted,
-                        fontSize: 12,
-                        flex: '0 0 auto',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 15,
-                          height: 15,
-                          borderRadius: 4,
-                          border: `1px solid ${rowHasBreak(row) ? color.gold : color.borderStrong}`,
-                          background: rowHasBreak(row) ? color.gold : 'transparent',
-                        }}
-                      />
-                      Перерыв
-                    </div>
-                    {rowHasBreak(row) && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <input
-                          type="time"
-                          style={timeInputStyle}
-                          value={row.break_start ?? '13:00'}
-                          onChange={(e) => updateRow(row.weekday, { break_start: e.target.value })}
-                        />
-                        <span style={{ color: color.textFaint, fontSize: 13 }}>—</span>
-                        <input
-                          type="time"
-                          style={timeInputStyle}
-                          value={row.break_end ?? '14:00'}
-                          onChange={(e) => updateRow(row.weekday, { break_end: e.target.value })}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: color.textDim, fontSize: 13 }}>Выходной</div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+            const dayLabel = (
+              <div style={{ color: color.textPrimaryAlt, fontSize: 14, fontWeight: 600 }}>{WEEKDAY_LABELS[row.weekday]}</div>
+            );
+            const toggle = <Toggle checked={row.is_open} onChange={(next) => toggleOpen(row.weekday, next)} />;
+            const borderBottom = i === rows.length - 1 ? 'none' : `1px solid ${color.rowBorder}`;
+
+            return isMobile ? (
+              <div
+                key={row.weekday}
+                style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', borderBottom }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  {dayLabel}
+                  {toggle}
+                </div>
+                {row.is_open ? (
+                  <>
+                    {timesRow}
+                    {breakRow}
+                  </>
+                ) : (
+                  <div style={{ color: color.textDim, fontSize: 13 }}>Выходной</div>
+                )}
+              </div>
+            ) : (
+              <div
+                key={row.weekday}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '160px 44px 260px 1fr',
+                  alignItems: 'center',
+                  gap: 18,
+                  padding: '16px 20px',
+                  borderBottom,
+                }}
+              >
+                {dayLabel}
+                {toggle}
+                {row.is_open ? (
+                  <>
+                    {timesRow}
+                    {breakRow}
+                  </>
+                ) : (
+                  <div style={{ color: color.textDim, fontSize: 13 }}>Выходной</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

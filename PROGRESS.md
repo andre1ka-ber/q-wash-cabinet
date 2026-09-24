@@ -302,6 +302,58 @@ See `PLAN.md` for the full plan and build order.
   Out of scope, per plan: `HoursPage.tsx` (already had this error pattern
   before Phase I) and drawer form-validation coverage — left for later.
 
+- 2026-09-24 — **Mobile view (≤768px)**, part of a platform-wide pass across
+  all four web apps (see root `plan.md`/`progress.md` for the shared plan).
+  Uses the new `useIsMobile(768)` hook from `q-wash-shared`.
+
+  `TabBar.tsx`: labels already overflow a 375px viewport well before any
+  content does (padding+gaps alone exceed available width), so mobile gets
+  `overflowX:'auto'` + reduced `18px` side padding + `flexShrink:0` per tab
+  — same horizontal-scroll pattern the source design mock itself uses for
+  its tab rows. `Header.tsx` needed no change — its accept pill/logout
+  group is narrow enough that the point-name column's existing
+  ellipsis/`minWidth:0` absorbs the rest, verified by hand with the real
+  measurements before touching anything.
+
+  `ServicesPage.tsx`: new `ServiceCard` (name+description+duration, an
+  `Изменить` button, `ActiveToggleCell` reused unchanged) renders as a
+  stacked list on mobile instead of `DataTable`; desktop table untouched.
+  Price options render as the same flexible chip row as desktop — the
+  mock's fixed Седан/SUV/Минивэн columns don't exist on `Service` (its
+  `price_options` are free-form named tiers), so this mirrors `q-wash-admin`'s
+  precedent of reusing the app's real data shape rather than inventing the
+  mock's fields.
+
+  `HoursPage.tsx`: the 4-column `160px 44px 260px 1fr` grid row genuinely
+  overflows a phone width (open/close + break inputs alone exceed it) —
+  refactored into shared `timesRow`/`breakRow`/`dayLabel`/`toggle` JSX
+  fragments reused by both a `display:grid` desktop row and a stacked-flex
+  mobile row (day+toggle on one line, then times, then a `flexWrap`'d break
+  row so its inputs drop to their own line instead of overflowing).
+
+  `PhotosPage.tsx`: photo grid and description section already reflow on
+  their own (`auto-fill` grid, `maxWidth` cap that just shrinks). Only
+  change: the custom-amenity input row gets `flexWrap:'wrap'` — its fixed
+  200px input plus the "Добавить" button narrowly overflowed a 375px
+  content width; the button now wraps to its own line instead. Universal
+  fix, not mobile-gated, no visual change at desktop widths.
+
+  `BoxesPage.tsx`: deliberately untouched — its `repeat(auto-fill,
+  minmax(220px,1fr))` card grid already collapses to one column on a phone,
+  no reflow needed.
+
+  Cross-app gotcha (same one hit in `q-wash-admin`): `vitest.config.ts` was
+  missing the `resolve.dedupe: ['react','react-dom']` that `vite.config.ts`
+  already carried — only surfaces once a component calls a hook from
+  `q-wash-shared`. Fixed here too, plus a `window.matchMedia` jsdom
+  polyfill in `vitest.setup.ts` (defaults to non-matching/desktop).
+
+  `npx tsc -b`, `npx vitest run` (5 files / 15 tests), `npm run lint`
+  (oxlint), and `npm run build` all clean. No new tests added — existing
+  component tests don't exercise `useIsMobile` (they run at its jsdom
+  default of "desktop"), consistent with this app's existing coverage
+  choices; flagged here rather than silently skipped.
+
 - 2026-09-19 — **New palette/font/logo from Claude Design.** Picked up
   `q-wash-shared`'s new `theme/tokens.ts` values (near-black palette,
   single Sora font) and its new `LogoMark` component (replaces the old
