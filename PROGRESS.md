@@ -362,4 +362,38 @@ See `PLAN.md` for the full plan and build order.
   removed the `theme/fonts.css` import from `main.tsx` and added the
   Google Fonts `<link>`s + an inline-SVG favicon (same logo mark) to
   `index.html` — self-hosted Manrope/Prata dropped in favor of the CDN.
+
+- 2026-09-24 — **New "QR-код" tab** (5th tab, after "Фото и описание"),
+  per the platform's cross-repo `plan.md`. `src/features/qr-code/
+  QrCodePage.tsx`: real data throughout via `q-wash-shared`'s
+  `getMyQrCode()`/`requestQrCodeReplacement()` (step 1/2 of that plan,
+  both already live and reviewed) — the sticker preview (real, scannable
+  `QrCodeImage`, encoding the same `resolveApiAssetUrl('/api/v1/qr-codes/
+  scan/'+token)` URL q-wash-admin's pool page already verified), the
+  scans-today/7d/bookings-via-QR stat row, a 7-day scan bar chart (day
+  labels derived from each `scans_by_day` entry's real date, not
+  hardcoded weekday names — the window is a real rolling 7 days, not a
+  fixed Mon–Sun), and the replacement-request flow (driven by
+  `replacement_requested_at` on the fetched data itself, so a page reload
+  still shows "already requested" instead of resetting to idle).
+
+  "Скачать наклейку · PDF" reuses q-wash-admin's already-reviewed
+  `window.print()` + `@media print` pattern (mount-on-demand print block,
+  not permanently CSS-hidden) rather than a PDF library, consistent with
+  that decision. "Скачать PNG" is a genuine client-side export — grabs the
+  rendered `<svg>` via a wrapper ref, serializes it, rasterizes through an
+  offscreen `<canvas>`, and downloads a real PNG; didn't need to touch
+  `q-wash-shared`'s `QrCodeImage` for this (no ref-forwarding added — a
+  wrapper `<div>` + `querySelector('svg')` was simpler). The 404 empty
+  state ("no code assigned yet") is a plain explanatory message — staff
+  has no action here, assignment is admin-only per `plan.md`'s scope.
+  `TabBar.tsx` needed no other change (already `overflowX:auto` on mobile
+  from the earlier mobile-views pass); this page also gets a light
+  `useIsMobile()` single-column reflow for free, matching that pass's
+  pattern, since it cost little to add alongside the desktop layout.
+
+  `npx tsc -b`, `npx vitest run` (6 files / 19 tests, 4 new), `npm run
+  lint` (oxlint), and `npm run build` all clean. `git diff --stat`
+  confirms scope: `App.tsx`/`TabBar.tsx` (+3 lines total) plus the new
+  `src/features/qr-code/` — `q-wash-shared` untouched.
   `npm run build` and `npm test` both clean.

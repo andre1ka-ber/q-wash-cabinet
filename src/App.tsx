@@ -9,6 +9,7 @@ import { ServicesPage } from './features/services/ServicesPage';
 import { BoxesPage } from './features/boxes/BoxesPage';
 import { HoursPage } from './features/hours/HoursPage';
 import { PhotosPage } from './features/photos/PhotosPage';
+import { QrCodePage } from './features/qr-code/QrCodePage';
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ function AppRoutes() {
         <Route path="boxes" element={<BoxesPage />} />
         <Route path="hours" element={<HoursPage />} />
         <Route path="photos" element={<PhotosPage />} />
+        <Route path="qr-code" element={<QrCodePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

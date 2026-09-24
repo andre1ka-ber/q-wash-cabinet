@@ -1,0 +1,345 @@
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  color,
+  font,
+  radius,
+  ApiError,
+  resolveApiAssetUrl,
+  getMyQrCode,
+  requestQrCodeReplacement,
+  QrCodeImage,
+  StatCard,
+  StatusPill,
+  GhostButton,
+  useIsMobile,
+  type QrCode,
+} from 'q-wash-shared';
+
+// Same helper q-wash-admin's pool page already verified against the live
+// backend — the scan endpoint lives under /api/v1, outside q-wash-shared's
+// own resolved base, so a real phone camera needs the full origin-qualified
+// URL, not a bare token.
+function scanUrl(token: string): string {
+  return resolveApiAssetUrl(`/api/v1/qr-codes/scan/${token}`);
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function dayLabel(dateStr: string): string {
+  const label = new Date(dateStr + 'T00:00:00').toLocaleDateString('ru-RU', { weekday: 'short' });
+  return label.charAt(0).toUpperCase() + label.slice(1).replace('.', '');
+}
+
+async function downloadSvgAsPng(svg: SVGSVGElement, filename: string) {
+  const size = svg.width.baseVal.value || 512;
+  const serialized = new XMLSerializer().serializeToString(svg);
+  const svgBase64 = btoa(unescape(encodeURIComponent(serialized)));
+
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('failed to rasterize qr svg'));
+    img.src = `data:image/svg+xml;base64,${svgBase64}`;
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.drawImage(img, 0, 0, size, size);
+
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+export function QrCodePage() {
+  const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
+  const [error, setError] = useState<string | null>(null);
+  const [printMode, setPrintMode] = useState(false);
+  const qrWrapperRef = useRef<HTMLDivElement>(null);
+
+  const query = useQuery({
+    queryKey: ['cabinet', 'qr-code'],
+    queryFn: () => getMyQrCode(),
+    retry: (failureCount, err) => err instanceof ApiError && err.code === 'qr_code_not_found' ? false : failureCount < 3,
+  });
+
+  const replacementMutation = useMutation({
+    mutationFn: () => requestQrCodeReplacement(),
+    onSuccess: (updated) => {
+      setError(null);
+      queryClient.setQueryData(['cabinet', 'qr-code'], updated);
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'Не удалось отправить запрос'),
+  });
+
+  useEffect(() => {
+    if (!printMode) return;
+    const id = requestAnimationFrame(() => window.print());
+    const reset = () => setPrintMode(false);
+    window.addEventListener('afterprint', reset);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener('afterprint', reset);
+    };
+  }, [printMode]);
+
+  const notFound = query.error instanceof ApiError && query.error.code === 'qr_code_not_found';
+  const code: QrCode | undefined = query.data;
+
+  async function handleDownloadPng() {
+    const svg = qrWrapperRef.current?.querySelector('svg');
+    if (!svg || !code) return;
+    try {
+      await downloadSvgAsPng(svg, `${code.code}.png`);
+    } catch {
+      setError('Не удалось сохранить PNG');
+    }
+  }
+
+  if (query.isLoading) {
+    return <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Загрузка…</div>;
+  }
+
+  if (notFound) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ color: color.textPrimary, fontSize: 19, fontWeight: 700 }}>QR-код</div>
+        <div style={{ color: color.textFaint, fontSize: 13.5, lineHeight: 1.6, maxWidth: 460 }}>
+          Администратор ещё не привязал QR-код к вашей мойке. Как только это произойдёт, наклейка появится здесь.
+        </div>
+      </div>
+    );
+  }
+
+  if (query.isError || !code) {
+    return <div style={{ color: color.bad, fontSize: 13 }}>Не удалось загрузить QR-код</div>;
+  }
+
+  const maxDay = Math.max(1, ...code.stats!.scans_by_day.map((d) => d.count));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {printMode && (
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            .qr-print-only, .qr-print-only * { visibility: visible; }
+            .qr-print-only { position: absolute; left: 0; top: 0; width: 100%; }
+          }
+        `}</style>
+      )}
+
+      {error && <div style={{ color: color.bad, fontSize: 13 }}>{error}</div>}
+
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 24, alignItems: 'flex-start' }}>
+        <div
+          style={{
+            width: isMobile ? '100%' : 380,
+            flex: isMobile ? undefined : '0 0 380px',
+            borderRadius: radius.xxl,
+            background: '#191813',
+            border: `1px solid ${color.borderStrong}`,
+            padding: 26,
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 18,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'stretch' }}>
+            <div style={{ color: color.textPrimary, fontSize: 16, fontWeight: 600, fontFamily: font.display }}>Q Wash</div>
+            <div style={{ marginLeft: 'auto', color: color.textFaint, fontSize: 12 }}>
+              {code.washing_point_name ?? ''}
+            </div>
+          </div>
+          <div
+            ref={qrWrapperRef}
+            style={{ width: 220, height: 220, padding: 14, borderRadius: radius.xl, background: '#F6F5EF', boxSizing: 'border-box' }}
+          >
+            <QrCodeImage value={scanUrl(code.token)} size={192} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center' }}>
+            <div style={{ color: color.textPrimary, fontSize: 17, fontWeight: 600 }}>Сканируйте, чтобы занять очередь</div>
+            <div style={{ color: color.textFaint, fontSize: 12.5 }}>услуги · запись · живая очередь</div>
+          </div>
+          <div
+            style={{
+              alignSelf: 'stretch',
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 10,
+              paddingTop: 12,
+              borderTop: `1px solid ${color.borderStrong}`,
+            }}
+          >
+            <span style={{ color: color.gold, fontSize: 13, fontWeight: 700 }}>{code.code}</span>
+            <span
+              style={{
+                color: color.textFaint,
+                fontSize: 11,
+                fontFamily: 'ui-monospace, monospace',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {scanUrl(code.token)}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div
+            style={{
+              padding: '18px 20px',
+              borderRadius: radius.xxl,
+              background: color.panel,
+              border: `1px solid ${color.borderAlt}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ color: color.textPrimary, fontSize: 16, fontWeight: 600 }}>
+                  Код {code.code} привязан к вашей мойке
+                </div>
+                <StatusPill kind="ok">Активен</StatusPill>
+              </div>
+              <div style={{ color: color.textFaint, fontSize: 12.5 }}>
+                Назначил администратор Q Wash{code.assigned_at ? ` · ${formatDateTime(code.assigned_at)}` : ''} · партия{' '}
+                {code.batch_label}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12 }}>
+            <StatCard label="Сканов сегодня" value={code.stats!.scans_today} />
+            <StatCard label="За 7 дней" value={code.stats!.scans_7d} />
+            <StatCard label="Записей через QR" value={code.stats!.bookings_via_qr} />
+          </div>
+
+          <div
+            style={{
+              padding: '18px 20px',
+              borderRadius: radius.xxl,
+              background: color.panel,
+              border: `1px solid ${color.borderAlt}`,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ color: color.textPrimary, fontSize: 14, fontWeight: 600 }}>Сканы по дням</div>
+              <div style={{ color: color.textFaint, fontSize: 12 }}>последние 7 дней</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 110 }}>
+              {code.stats!.scans_by_day.map((d) => (
+                <div
+                  key={d.date}
+                  style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}
+                >
+                  <div
+                    title={`${d.date}: ${d.count}`}
+                    style={{
+                      width: '100%',
+                      borderRadius: '6px 6px 3px 3px',
+                      height: Math.max(2, Math.round((d.count / maxDay) * 84)),
+                      background: color.borderDashed,
+                    }}
+                  />
+                  <div style={{ color: color.textFaint, fontSize: 11 }}>{dayLabel(d.date)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <GhostButton style={{ flex: 1 }} onClick={() => setPrintMode(true)}>
+              Скачать наклейку · PDF
+            </GhostButton>
+            <GhostButton style={{ flex: 1 }} onClick={() => void handleDownloadPng()}>
+              Скачать PNG
+            </GhostButton>
+            <a
+              href={scanUrl(code.token)}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                padding: '11px 18px',
+                borderRadius: radius.md,
+                border: `1px solid ${color.borderStrong}`,
+                color: color.textSecondary,
+                fontSize: 13,
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              Открыть страницу
+            </a>
+          </div>
+
+          {code.replacement_requested_at ? (
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: radius.lg,
+                background: color.okBg,
+                color: color.ok,
+                fontSize: 13,
+              }}
+            >
+              Запрос отправлен администратору. Старый код продолжит работать, пока не привяжут новый.
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: radius.lg,
+                background: color.panelAlt,
+                border: `1px solid ${color.borderAlt}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 200, color: color.textMuted, fontSize: 12.5, lineHeight: 1.55 }}>
+                Наклейка повреждена или потерялась? Сменить код может только администратор.
+              </div>
+              <GhostButton
+                onClick={() => replacementMutation.mutate()}
+                disabled={replacementMutation.isPending}
+                style={{ color: color.bad, borderColor: color.badBorder, whiteSpace: 'nowrap' }}
+              >
+                Запросить замену
+              </GhostButton>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {printMode && (
+        <div className="qr-print-only" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 24 }}>
+          <QrCodeImage value={scanUrl(code.token)} size={220} background="#ffffff" foreground="#000000" />
+          <div style={{ fontWeight: 700, fontSize: 18 }}>{code.code}</div>
+          <div>{code.washing_point_name}</div>
+        </div>
+      )}
+    </div>
+  );
+}
