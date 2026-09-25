@@ -17,11 +17,12 @@ import {
 } from 'q-wash-shared';
 
 // Same helper q-wash-admin's pool page already verified against the live
-// backend — the scan endpoint lives under /api/v1, outside q-wash-shared's
-// own resolved base, so a real phone camera needs the full origin-qualified
-// URL, not a bare token.
+// backend — /q/{token} is a short, root-level alias for
+// /api/v1/qr-codes/scan/{token} (same handler), chosen over the longer
+// path so the encoded string stays short and the resulting QR stays a
+// low, visually clean version even at a small size.
 function scanUrl(token: string): string {
-  return resolveApiAssetUrl(`/api/v1/qr-codes/scan/${token}`);
+  return resolveApiAssetUrl(`/q/${token}`);
 }
 
 function formatDateTime(iso: string): string {
@@ -34,7 +35,11 @@ function dayLabel(dateStr: string): string {
 }
 
 async function downloadSvgAsPng(svg: SVGSVGElement, filename: string) {
-  const size = svg.width.baseVal.value || 512;
+  // getBoundingClientRect (not svg.width.baseVal.value) — QrCodeImage now
+  // renders width="100%" by default, and baseVal.value only resolves a
+  // percentage against layout, which is fragile; the rendered rect is the
+  // actual pixel size either way.
+  const size = svg.getBoundingClientRect().width || 512;
   const serialized = new XMLSerializer().serializeToString(svg);
   const svgBase64 = btoa(unescape(encodeURIComponent(serialized)));
 
@@ -165,7 +170,7 @@ export function QrCodePage() {
             ref={qrWrapperRef}
             style={{ width: 220, height: 220, padding: 14, borderRadius: radius.xl, background: '#F6F5EF', boxSizing: 'border-box' }}
           >
-            <QrCodeImage value={scanUrl(code.token)} size={192} />
+            <QrCodeImage value={scanUrl(code.token)} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center' }}>
             <div style={{ color: color.textPrimary, fontSize: 17, fontWeight: 600 }}>Сканируйте, чтобы занять очередь</div>

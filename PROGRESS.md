@@ -396,4 +396,36 @@ See `PLAN.md` for the full plan and build order.
   lint` (oxlint), and `npm run build` all clean. `git diff --stat`
   confirms scope: `App.tsx`/`TabBar.tsx` (+3 lines total) plus the new
   `src/features/qr-code/` — `q-wash-shared` untouched.
+
+- 2026-09-25 — **Fixed a real visual regression**: the sticker's QR looked
+  denser than the design mock's clean pattern — the mock's fake generator
+  used a small fixed grid, but the real encoded URL was long enough to
+  need a much higher QR version. `q-wash-api` added a short root-level
+  alias, `GET /q/{token}` (same handler, see its own `PROGRESS.md`);
+  `scanUrl()` here now builds against that instead of
+  `/api/v1/qr-codes/scan/{token}`. `npx tsc -b`, `npx vitest run` (19/19,
+  no test changes needed), `npx oxlint` all clean.
   `npm run build` and `npm test` both clean.
+
+- 2026-09-25 (same day) — **Follow-up fix, same QR-image work**: dropped
+  `size={192}` on the sticker's `QrCodeImage` in favor of its new default
+  (fill 100% of the wrapper) — see `q-wash-shared`'s own `PROGRESS.md` for
+  why a hardcoded pixel size is the wrong default (it broke q-wash-admin's
+  detail panel the same way) and why this app's sticker wrapper (a fixed
+  220×220 `box-sizing:border-box` box) was actually already safe either
+  way. Also switched `downloadSvgAsPng`'s size lookup from
+  `svg.width.baseVal.value` to `getBoundingClientRect().width`, since the
+  former only reliably resolves a plain pixel width attribute, not the
+  percentage one `QrCodeImage` now renders by default.
+
+  `npx tsc -b`, `npx vitest run` (19/19), `npx oxlint` clean. Verified for
+  real: the sticker QR still renders square (zoomed in to check), and
+  clicking "Скачать PNG" produces an actual 192×192 PNG file on disk with
+  the correct QR content — not just assumed from the code change.
+
+- 2026-09-25 (same day) — Restyled scrollbars (`index.css`): thin (10px),
+  transparent track, rounded dark thumb (`#33322C`, `#4E4E47` on hover)
+  instead of the browser default, applied globally (`*`). Same change made
+  identically across all four web apps (`q-wash-admin`, `q-wash-cabinet`,
+  `q-wash-worker`, `q-wash-display`) for a consistent look. `npx vitest
+  run` still 19/19 (CSS-only change).
