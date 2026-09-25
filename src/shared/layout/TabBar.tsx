@@ -12,6 +12,7 @@ const TABS: TabItem[] = [
   { key: 'boxes', label: 'Боксы', to: '/boxes' },
   { key: 'hours', label: 'Часы работы', to: '/hours' },
   { key: 'photos', label: 'Фото и описание', to: '/photos' },
+  { key: 'reports', label: 'Отчёты', to: '/reports' },
   { key: 'qrCode', label: 'QR-код', to: '/qr-code' },
 ];
 

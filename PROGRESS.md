@@ -505,3 +505,72 @@ See `PLAN.md` for the full plan and build order.
   inline button row disappears, the fixed PDF/PNG bar appears and stays
   pinned while the page scrolls, and the spacer keeps the last content
   block ("Запросить замену") clear of it.
+
+- 2026-09-25 (same day) — **New "Отчёты" (reports) tab** — 5th cabinet
+  tab, source: `Car Wash Web Apps.dc.html`'s `tabReports` section (same
+  Claude Design project as the rest of this app), tab order confirmed
+  against the QR-codes mock's own tab list (Услуги, Боксы, Часы работы,
+  Фото и описание, Отчёты, QR-код — added between Фото и описание and
+  QR-код). User explicitly chose wiring this to a real new backend
+  endpoint over a mock-data-first pass when asked — see `q-wash-api`'s
+  `PROGRESS.md` phase 10 for that half. Added `ReportsPage.tsx`
+  (`features/reports/`), a route (`/reports`) and `TabBar` entry.
+
+  Period picker (Сегодня/Неделя/Месяц, `getReports(washingPointId,
+  period)` from `q-wash-shared`), 4 `StatCard`s with delta pills
+  (`pctDelta`/`intDelta`/`ppDelta` map the backend's `null`-on-no-prior-data
+  convention to no pill at all, not a misleading "+0%"), a revenue bar
+  chart (raw RFC3339 bucket timestamps from the backend, formatted
+  client-side via `barLabel` — same convention `dayLabel` already uses on
+  the QR code page; `period=today`'s bars are further trimmed to the
+  point's own open/close hours via `visibleTodayBars`, using
+  `useMyWashingPoint()`'s already-fetched `open_time`/`close_time` rather
+  than showing 24 mostly-empty hourly bars), a "По услугам" breakdown
+  (`DataTable` on desktop, a card list on mobile — this page was built
+  mobile-responsive from day one, not as a follow-up gap like the QR
+  pages earlier today), and a "По боксам" load list.
+
+  Export, per the plan doc's decision to add no new dependency: "Скачать
+  PDF" reuses the exact `window.print()` + print-only-block pattern
+  `QrCodePage.tsx` already established; "Скачать Excel" builds a CSV
+  client-side (`csvEscape` + a UTF-8 BOM so Cyrillic renders correctly in
+  Excel) rather than pulling in an xlsx library.
+
+  New `ReportsPage.test.tsx` (loading state, real KPI/delta/service/box
+  rendering, period-switch triggers a refetch with the new period, error
+  state) — needed an explicit `cleanup()` in `afterEach` alongside
+  `vi.clearAllMocks()`; without it, stale DOM from this file's own
+  loading-state test (a query that deliberately never resolves) leaked
+  into later tests in the same file and caused spurious
+  multiple-elements-found failures — every other test file in this app
+  gets away without it, not fully sure why, flagging as an unexplained
+  gap in understanding rather than pretending it's solved. `npx tsc
+  --noEmit`, `npx vitest run` (4/4 new, 23/23 total) clean.
+
+  Browser-verified for real against the actual local backend (had to
+  restart its `go run ./cmd/api` process — the one already running
+  predated this session's endpoint and 404'd; found and killed the
+  orphaned child binary still holding port 8080 after the wrapper
+  process died, then restarted cleanly): the zero-activity empty state
+  renders correctly (no seeded completed bookings for this account),
+  period switching actually refetches and updates the range label/chart
+  title/bucket count (`week` → 7 daily bars in `businessLocation`
+  weekdays with today highlighted gold; `today` → hourly bars correctly
+  trimmed to the point's real 08:00–20:00 hours; `month` → 25 daily bars
+  with sparse 1/5/9/13/17/21/25 labels, last one highlighted), and the
+  mobile layout (via the same `matchMedia` monkey-patch as the QR pages)
+  stacks correctly — full-width period picker, 2-up export buttons,
+  2-column stat grid, card-list services instead of a table. Did not
+  actually click "Скачать Excel" to trigger a real file download (no
+  need — the CSV-building logic is a simple, directly-reviewed pure
+  function, and clicking it would leave a stray downloaded file behind
+  for no verification gain); confirmed only that the button renders
+  enabled once data loads. The `computer` tool's click-by-coordinate
+  action was unreliable on this page for an unrelated reason — its
+  screenshot pixel space didn't match the page's actual CSS pixel
+  coordinates in this session, so a "correctly aimed" click by eye
+  landed on nothing — worked around by reading each button's real
+  `getBoundingClientRect()` via `javascript_tool` and dispatching a
+  `MouseEvent` at those coordinates instead; noting this in case it
+  recurs, since it cost real time to diagnose and isn't a bug in this
+  page's code.

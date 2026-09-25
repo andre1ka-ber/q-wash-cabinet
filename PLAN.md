@@ -47,6 +47,17 @@ status pill, Save button) over a 4-tab layout:
    picker (multi-select chips, e.g. "Кофе", "Wi-Fi"). Needs
    `WashingPointPhoto` + the `description`/`amenities` columns on
    `WashingPoint`.
+5. **Отчёты (reports)** — added later (2026-09-25), source:
+   `Car Wash Web Apps.dc.html`'s `tabReports` section, same project. A
+   period picker (Сегодня/Неделя/Месяц), 4 KPI cards with deltas
+   (выручка/машин/средний чек/загрузка боксов), a revenue bar chart, a
+   "по услугам" breakdown table, a "по боксам" load list, and PDF/Excel
+   export. Needs a new backend aggregation endpoint — see
+   `../q-wash-api/docs/PLAN_WEB_APPS.md` phase 10 — no schema change,
+   everything's derived from existing `Queue`/`Service`/`Box` data. Tab
+   order (confirmed against the QR-codes mock's own tab list, which
+   includes this tab too): Услуги, Боксы, Часы работы, Фото и описание,
+   Отчёты, QR-код.
 
 ## Decisions locked in (with the user)
 
