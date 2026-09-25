@@ -458,3 +458,9 @@ See `PLAN.md` for the full plan and build order.
   with an immediate `401` never gets refreshed-and-retried. Worth a look
   if `PUT`/`POST` calls start failing with "Не удалось связаться с
   сервером" after a session's been open a while.
+
+- 2026-09-25 (same day) — Updated the favicon (`index.html`'s inline
+  `data:image/svg+xml` `<link rel="icon">`) to match the `LogoMark` fix
+  (see `q-wash-shared`'s `PROGRESS.md`): dark bordered square instead of
+  gold, gray/gray/gold bars instead of dark-on-gold. Same change applied
+  identically in `q-wash-admin`, `q-wash-worker`, `q-wash-display`.
