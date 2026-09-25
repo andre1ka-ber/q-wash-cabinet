@@ -473,3 +473,35 @@ See `PLAN.md` for the full plan and build order.
   clicking the icon opens the dialog, "Отмена" closes it with no logout.
   `App.tsx`'s uses the identical pattern but wasn't separately
   browser-tested (no unassigned test account handy to reach that screen).
+
+- 2026-09-25 (same day) — `QrCodePage.tsx` was already mostly
+  mobile-adjusted (column stacking via `useIsMobile`) but drifted from
+  the design mock's now-mobile-adjusted `Q Wash QR Codes.dc.html` (read
+  via the `claude_design` MCP,
+  `f6bd39c5-b19d-4809-8dd5-e05719c4f6e9`) in two spots:
+
+  1. The stat-card row dropped to a single column on mobile, where the
+     mock keeps it 3-up even at phone width. Fixed — `repeat(3,1fr)`
+     unconditionally, just a smaller gap on mobile (8px vs 12px),
+     matching both the mock and how `q-wash-admin`'s own mobile stat
+     grids stay multi-column.
+  2. The mock's mobile screen replaces the desktop's inline
+     PDF/PNG/"Открыть страницу" button row with a sticky bottom action
+     bar (gradient fade, icon + label, PDF/PNG only — no page link) and
+     a slightly smaller QR image (196px vs 220px). The page still had
+     the old inline row at any width. Fixed: on mobile the inline row is
+     replaced by a `position: fixed` bottom bar (a plain spacer `div`
+     above it reserves the scroll space so it doesn't cover the
+     replacement-request block), "Открыть страницу" is dropped on
+     mobile to match the mock, and the QR image shrinks to 196px.
+     Desktop is untouched — same three buttons, same 220px image.
+
+  `npx tsc --noEmit`, `npx vitest run` (4/4) clean. Browser-verified with
+  the same `window.matchMedia` monkey-patch workaround used for
+  `q-wash-admin`'s QR page today (see its `PROGRESS.md` — the sandbox's
+  actual browser viewport wouldn't resize below desktop width, so this
+  proves the mobile code path renders correctly, not the exact spacing
+  at true phone width): confirmed the stat row stays 3 columns, the
+  inline button row disappears, the fixed PDF/PNG bar appears and stays
+  pinned while the page scrolls, and the spacer keeps the last content
+  block ("Запросить замену") clear of it.

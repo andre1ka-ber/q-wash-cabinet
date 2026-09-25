@@ -168,7 +168,14 @@ export function QrCodePage() {
           </div>
           <div
             ref={qrWrapperRef}
-            style={{ width: 220, height: 220, padding: 14, borderRadius: radius.xl, background: '#F6F5EF', boxSizing: 'border-box' }}
+            style={{
+              width: isMobile ? 196 : 220,
+              height: isMobile ? 196 : 220,
+              padding: isMobile ? 13 : 14,
+              borderRadius: radius.xl,
+              background: '#F6F5EF',
+              boxSizing: 'border-box',
+            }}
           >
             <QrCodeImage value={scanUrl(code.token)} />
           </div>
@@ -229,7 +236,7 @@ export function QrCodePage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: isMobile ? 8 : 12 }}>
             <StatCard label="Сканов сегодня" value={code.stats!.scans_today} />
             <StatCard label="За 7 дней" value={code.stats!.scans_7d} />
             <StatCard label="Записей через QR" value={code.stats!.bookings_via_qr} />
@@ -271,32 +278,37 @@ export function QrCodePage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <GhostButton style={{ flex: 1 }} onClick={() => setPrintMode(true)}>
-              Скачать наклейку · PDF
-            </GhostButton>
-            <GhostButton style={{ flex: 1 }} onClick={() => void handleDownloadPng()}>
-              Скачать PNG
-            </GhostButton>
-            <a
-              href={scanUrl(code.token)}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                padding: '11px 18px',
-                borderRadius: radius.md,
-                border: `1px solid ${color.borderStrong}`,
-                color: color.textSecondary,
-                fontSize: 13,
-                fontWeight: 700,
-                textDecoration: 'none',
-              }}
-            >
-              Открыть страницу
-            </a>
-          </div>
+          {/* On mobile these three actions move into a fixed bottom bar
+              (below) that mirrors the design mock's mobile QR screen —
+              this inline row is desktop-only. */}
+          {!isMobile && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <GhostButton style={{ flex: 1 }} onClick={() => setPrintMode(true)}>
+                Скачать наклейку · PDF
+              </GhostButton>
+              <GhostButton style={{ flex: 1 }} onClick={() => void handleDownloadPng()}>
+                Скачать PNG
+              </GhostButton>
+              <a
+                href={scanUrl(code.token)}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  flex: 1,
+                  textAlign: 'center',
+                  padding: '11px 18px',
+                  borderRadius: radius.md,
+                  border: `1px solid ${color.borderStrong}`,
+                  color: color.textSecondary,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                }}
+              >
+                Открыть страницу
+              </a>
+            </div>
+          )}
 
           {code.replacement_requested_at ? (
             <div
@@ -337,6 +349,78 @@ export function QrCodePage() {
           )}
         </div>
       </div>
+
+      {/* Reserves scroll space so the fixed bottom bar below doesn't cover
+          the last content block. */}
+      {isMobile && <div style={{ height: 86 }} />}
+
+      {isMobile && (
+        <div
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            padding: '16px 18px 30px',
+            background: `linear-gradient(180deg, rgba(18,18,17,0), ${color.surface} 34%)`,
+            zIndex: 12,
+            display: 'flex',
+            gap: 10,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setPrintMode(true)}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: 15,
+              borderRadius: radius.lg,
+              border: 'none',
+              background: color.gold,
+              color: color.goldOnLight,
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14" />
+            </svg>
+            PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleDownloadPng()}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: 15,
+              borderRadius: radius.lg,
+              border: `1px solid ${color.borderStrong}`,
+              background: color.panel,
+              color: color.textPrimary,
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 18V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+              <path d="m4 16 4.5-4.5 3.5 3.5 2.5-2.5L20 18" />
+            </svg>
+            PNG
+          </button>
+        </div>
+      )}
 
       {printMode && (
         <div className="qr-print-only" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 24 }}>
