@@ -15,18 +15,55 @@ import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
 
 const WEEKDAY_LABELS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
-const timeInputStyle = {
-  padding: '9px 10px',
-  borderRadius: radius.sm,
-  background: color.input,
-  border: `1px solid ${color.borderStrong}`,
+const timeSelectStyle = {
+  border: 'none',
+  background: 'transparent',
   color: color.textSecondary,
   fontSize: 13,
   fontFamily: 'inherit',
   outline: 'none',
   colorScheme: 'dark' as const,
-  width: 110,
+  padding: '9px 4px',
 };
+
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+// The native <input type="time"> renders AM/PM based on the browser's own
+// UI language, not this page's content or a `lang` attribute (confirmed
+// live — Chromium ignores it entirely) — so a plain 24h hour/minute select
+// pair is the only way to guarantee 24h display regardless of the user's
+// browser settings.
+function TimeSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [h, m] = value.split(':');
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        borderRadius: radius.sm,
+        background: color.input,
+        border: `1px solid ${color.borderStrong}`,
+      }}
+    >
+      <select style={timeSelectStyle} value={h} onChange={(e) => onChange(`${e.target.value}:${m}`)}>
+        {HOURS.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+      <span style={{ color: color.textFaint }}>:</span>
+      <select style={timeSelectStyle} value={m} onChange={(e) => onChange(`${h}:${e.target.value}`)}>
+        {MINUTES.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 function sortedByWeekday(items: ScheduleRow[]): ScheduleRow[] {
   return [...items].sort((a, b) => a.weekday - b.weekday);
@@ -126,18 +163,14 @@ export function HoursPage() {
           {rows.map((row, i) => {
             const timesRow = (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="time"
-                  style={timeInputStyle}
+                <TimeSelect
                   value={row.open_time ?? '08:00'}
-                  onChange={(e) => updateRow(row.weekday, { open_time: e.target.value })}
+                  onChange={(open_time) => updateRow(row.weekday, { open_time })}
                 />
                 <span style={{ color: color.textFaint, fontSize: 13 }}>—</span>
-                <input
-                  type="time"
-                  style={timeInputStyle}
+                <TimeSelect
                   value={row.close_time ?? '20:00'}
-                  onChange={(e) => updateRow(row.weekday, { close_time: e.target.value })}
+                  onChange={(close_time) => updateRow(row.weekday, { close_time })}
                 />
               </div>
             );
@@ -168,18 +201,14 @@ export function HoursPage() {
                 </div>
                 {rowHasBreak(row) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
-                      type="time"
-                      style={timeInputStyle}
+                    <TimeSelect
                       value={row.break_start ?? '13:00'}
-                      onChange={(e) => updateRow(row.weekday, { break_start: e.target.value })}
+                      onChange={(break_start) => updateRow(row.weekday, { break_start })}
                     />
                     <span style={{ color: color.textFaint, fontSize: 13 }}>—</span>
-                    <input
-                      type="time"
-                      style={timeInputStyle}
+                    <TimeSelect
                       value={row.break_end ?? '14:00'}
-                      onChange={(e) => updateRow(row.weekday, { break_end: e.target.value })}
+                      onChange={(break_end) => updateRow(row.weekday, { break_end })}
                     />
                   </div>
                 )}

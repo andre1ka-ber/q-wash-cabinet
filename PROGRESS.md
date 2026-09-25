@@ -429,3 +429,32 @@ See `PLAN.md` for the full plan and build order.
   identically across all four web apps (`q-wash-admin`, `q-wash-cabinet`,
   `q-wash-worker`, `q-wash-display`) for a consistent look. `npx vitest
   run` still 19/19 (CSS-only change).
+
+- 2026-09-25 (same day) — **Часы работы showed 12h AM/PM**: the native
+  `<input type="time">` picker's AM/PM-vs-24h display is governed entirely
+  by the browser's own UI language, not by page content — tried a `lang`
+  attribute on the input first (a commonly-cited fix) and confirmed live,
+  by setting `document.documentElement.lang` on the running page, that
+  Chromium ignores it completely here. Replaced all four `type="time"`
+  inputs in `HoursPage.tsx` (open/close × main hours/break) with a new
+  local `TimeSelect` (hour 00–23 + minute 00–59 as two plain `<select>`s),
+  which is immune to browser locale by construction. Backend already
+  accepts any `HH:MM` in 24h format (`schedule/manager.go`'s
+  `timeFormatRegexp`), so no API change was needed.
+
+  `npx tsc --noEmit`, `npx vitest run` (19/19), `npx oxlint` clean.
+  Verified for real: values render as plain `09 : 00` with no AM/PM,
+  changing an hour via the select updates state correctly, and a direct
+  `PUT /washing-points/{id}/schedule` with the exact payload this UI now
+  sends round-trips correctly (fetched back unchanged).
+
+  Aside, not fixed (out of scope for this change): saving from the actual
+  browser tab twice failed with `503` from chi's `middleware.Timeout`,
+  while the identical request via `curl` with a freshly-issued token
+  succeeded instantly — looks like the access token in that long-lived
+  dev tab expired and the frontend's refresh logic
+  (`q-wash-shared/api/client.ts`) only triggers on a `401`, not a `503`,
+  so an expired-token request that the backend answers slowly instead of
+  with an immediate `401` never gets refreshed-and-retried. Worth a look
+  if `PUT`/`POST` calls start failing with "Не удалось связаться с
+  сервером" after a session's been open a while.
