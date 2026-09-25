@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { authStore, useAuth, color, font, GhostButton } from 'q-wash-shared';
+import { authStore, useAuth, color, font, GhostButton, ConfirmDialog } from 'q-wash-shared';
 import { CabinetShell } from './shared/layout/CabinetShell';
 import { LoginPage } from './features/auth/LoginPage';
 import { ServicesPage } from './features/services/ServicesPage';
@@ -22,43 +22,56 @@ function FullScreenLoader() {
 // User.washing_point_id. An admin/customer account (or a staff account
 // somehow missing the field) has nowhere sensible to land here.
 function UnsupportedAccount() {
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: color.pageBg,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-      }}
-    >
+    <>
       <div
         style={{
-          width: 420,
-          maxWidth: '100%',
-          background: color.panel,
-          border: `1px solid ${color.border}`,
-          borderRadius: 20,
-          padding: 32,
+          minHeight: '100vh',
+          background: color.pageBg,
           display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-          textAlign: 'center',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
         }}
       >
-        <div style={{ fontFamily: font.display, color: color.textPrimary, fontSize: 18 }}>
-          Этот аккаунт не привязан к мойке
+        <div
+          style={{
+            width: 420,
+            maxWidth: '100%',
+            background: color.panel,
+            border: `1px solid ${color.border}`,
+            borderRadius: 20,
+            padding: 32,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontFamily: font.display, color: color.textPrimary, fontSize: 18 }}>
+            Этот аккаунт не привязан к мойке
+          </div>
+          <div style={{ color: color.textMuted, fontSize: 13 }}>
+            Кабинет мойки доступен только сотрудникам, закреплённым за конкретной мойкой. Обратитесь к администратору
+            сети.
+          </div>
+          <GhostButton onClick={() => setLogoutConfirmOpen(true)} style={{ alignSelf: 'center', padding: '11px 22px' }}>
+            Выйти
+          </GhostButton>
         </div>
-        <div style={{ color: color.textMuted, fontSize: 13 }}>
-          Кабинет мойки доступен только сотрудникам, закреплённым за конкретной мойкой. Обратитесь к администратору
-          сети.
-        </div>
-        <GhostButton onClick={() => void authStore.logout()} style={{ alignSelf: 'center', padding: '11px 22px' }}>
-          Выйти
-        </GhostButton>
       </div>
-    </div>
+      {logoutConfirmOpen && (
+        <ConfirmDialog
+          title="Выйти из аккаунта?"
+          message="Понадобится снова ввести логин и пароль, чтобы продолжить работу."
+          confirmLabel="Выйти"
+          onConfirm={() => void authStore.logout()}
+          onCancel={() => setLogoutConfirmOpen(false)}
+        />
+      )}
+    </>
   );
 }
 

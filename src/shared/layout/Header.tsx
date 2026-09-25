@@ -1,5 +1,15 @@
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { authStore, color, font, radius, updateWashingPoint, type WashingPoint, LogoMark } from 'q-wash-shared';
+import {
+  authStore,
+  color,
+  font,
+  radius,
+  updateWashingPoint,
+  type WashingPoint,
+  LogoMark,
+  ConfirmDialog,
+} from 'q-wash-shared';
 import { useMyWashingPointId } from '../useMyWashingPoint';
 
 export interface HeaderProps {
@@ -21,100 +31,112 @@ export function Header({ point }: HeaderProps) {
   });
 
   const isActive = point?.status === 'active';
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   return (
-    <div
-      style={{
-        padding: '20px 32px',
-        borderBottom: `1px solid ${color.borderAlt}`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 20,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-        <LogoMark size={40} />
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontFamily: font.display,
-              color: color.textPrimary,
-              fontSize: 18,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {point?.name ?? '…'}
+    <>
+      <div
+        style={{
+          padding: '20px 32px',
+          borderBottom: `1px solid ${color.borderAlt}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 20,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+          <LogoMark size={40} />
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: font.display,
+                color: color.textPrimary,
+                fontSize: 18,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {point?.name ?? '…'}
+            </div>
+            <div style={{ color: color.textFaint, fontSize: 12 }}>{point?.address ?? ''}</div>
           </div>
-          <div style={{ color: color.textFaint, fontSize: 12 }}>{point?.address ?? ''}</div>
         </div>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '0 0 auto' }}>
-        {point && point.status !== 'pending_review' && (
+  
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '0 0 auto' }}>
+          {point && point.status !== 'pending_review' && (
+            <div
+              onClick={() => !toggleMutation.isPending && toggleMutation.mutate(isActive ? 'paused' : 'active')}
+              title={isActive ? 'Нажмите, чтобы приостановить приём записей' : 'Нажмите, чтобы возобновить приём записей'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 14px',
+                borderRadius: radius.pill,
+                cursor: toggleMutation.isPending ? 'default' : 'pointer',
+                background: isActive ? color.okBg : color.muteBg,
+                color: isActive ? color.ok : color.mute,
+                fontSize: 12,
+                fontWeight: 700,
+                opacity: toggleMutation.isPending ? 0.6 : 1,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: 'currentColor',
+                }}
+              />
+              {isActive ? 'Принимаем записи' : 'Записи приостановлены'}
+            </div>
+          )}
+          {point?.status === 'pending_review' && (
+            <div
+              style={{
+                padding: '8px 14px',
+                borderRadius: radius.pill,
+                background: color.warnBg,
+                color: color.warn,
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              На проверке
+            </div>
+          )}
           <div
-            onClick={() => !toggleMutation.isPending && toggleMutation.mutate(isActive ? 'paused' : 'active')}
-            title={isActive ? 'Нажмите, чтобы приостановить приём записей' : 'Нажмите, чтобы возобновить приём записей'}
+            onClick={() => setLogoutConfirmOpen(true)}
+            title="Выйти"
             style={{
+              width: 34,
+              height: 34,
+              borderRadius: radius.sm,
+              border: `1px solid ${color.borderStrong}`,
+              color: color.textMuted,
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '8px 14px',
-              borderRadius: radius.pill,
-              cursor: toggleMutation.isPending ? 'default' : 'pointer',
-              background: isActive ? color.okBg : color.muteBg,
-              color: isActive ? color.ok : color.mute,
-              fontSize: 12,
-              fontWeight: 700,
-              opacity: toggleMutation.isPending ? 0.6 : 1,
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: 15,
             }}
           >
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: 'currentColor',
-              }}
-            />
-            {isActive ? 'Принимаем записи' : 'Записи приостановлены'}
+            ⎋
           </div>
-        )}
-        {point?.status === 'pending_review' && (
-          <div
-            style={{
-              padding: '8px 14px',
-              borderRadius: radius.pill,
-              background: color.warnBg,
-              color: color.warn,
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            На проверке
-          </div>
-        )}
-        <div
-          onClick={() => void authStore.logout()}
-          title="Выйти"
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: radius.sm,
-            border: `1px solid ${color.borderStrong}`,
-            color: color.textMuted,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            fontSize: 15,
-          }}
-        >
-          ⎋
         </div>
       </div>
-    </div>
+      {logoutConfirmOpen && (
+        <ConfirmDialog
+          title="Выйти из аккаунта?"
+          message="Понадобится снова ввести логин и пароль, чтобы продолжить работу."
+          confirmLabel="Выйти"
+          onConfirm={() => void authStore.logout()}
+          onCancel={() => setLogoutConfirmOpen(false)}
+        />
+      )}
+    </>
   );
 }
