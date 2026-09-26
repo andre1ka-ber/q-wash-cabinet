@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionsFor, buildDays, dateKey, firstFree, fmtMin, isValidPhone, normalizePhone, timelineRange, toIsoAt } from './queueModel';
+import { actionsFor, buildDays, dateKey, firstFree, fmtMin, isValidPhone, timelineRange, toIsoAt } from './queueModel';
 
 describe('time helpers (Asia/Dushanbe)', () => {
   it('formats the business date/time regardless of the browser zone', () => {
@@ -40,10 +40,10 @@ describe('actionsFor', () => {
 });
 
 describe('phone validation', () => {
-  it('normalizes and validates E.164', () => {
-    expect(normalizePhone('+992 90 123-45-67')).toBe('+992901234567');
+  it('accepts numbers with or without a country code, rejects too-short input', () => {
     expect(isValidPhone('+992 90 123 45 67')).toBe(true);
-    expect(isValidPhone('901234567')).toBe(false);
+    expect(isValidPhone('90 123 45 67')).toBe(true);
+    expect(isValidPhone('12345')).toBe(false);
     expect(isValidPhone('')).toBe(false);
   });
 });

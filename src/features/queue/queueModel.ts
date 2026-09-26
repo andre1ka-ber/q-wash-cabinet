@@ -228,12 +228,8 @@ export function firstFree(
   return best;
 }
 
-const PHONE_RE = /^\+[1-9]\d{6,14}$/;
-
-export function normalizePhone(raw: string): string {
-  return raw.replace(/[\s\-()]/g, '');
-}
-
+// Only a sanity check — the API normalizes the number (adds +992 when the
+// country code is missing) and is the authority on validity.
 export function isValidPhone(raw: string): boolean {
-  return PHONE_RE.test(normalizePhone(raw));
+  return (raw.match(/\d/g) ?? []).length >= 7;
 }

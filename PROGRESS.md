@@ -598,3 +598,5 @@ See `PLAN.md` for the full plan and build order.
   Vitest+RTL (`QueuePage.test.tsx`, `queueModel.test.ts`) — 42/42 total,
   `tsc -b`, `oxlint`, `npm run build` clean. Not verified in a real browser
   against a running API/DB in this pass.
+
+- 2026-09-26 — Manual-add form follow-up: only the phone is required. Car model and plate are optional (omitted from the request when empty; the API upserts the client's car when either is given). The phone is sent as typed — the API adds `+992` when the country code is missing — so the client-side `normalizePhone` was dropped and `isValidPhone` is only a "≥ 7 digits" sanity check. Cards/details show "—" (or the client's phone in the mobile list) when there is no car name.

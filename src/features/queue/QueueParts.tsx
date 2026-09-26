@@ -22,7 +22,6 @@ import {
   fmtTime,
   isValidPhone,
   minutesOfDay,
-  normalizePhone,
   SOURCE_LABEL,
   STATUS_META,
   toIsoAt,
@@ -224,7 +223,7 @@ export function BookingDetails({
   const meta = STATUS_META[item.status];
   const actions = actionsFor(item.status, rel);
   const rows: [string, string][] = [
-    ['Авто', item.car_name],
+    ['Авто', item.car_name || '—'],
     ['Госномер', item.plate || '—'],
     ['Клиент', item.client_name || (item.source === 'manual' ? 'Клиент на месте' : '—')],
     ['Телефон', item.client_phone || '—'],
@@ -370,9 +369,9 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
         price_option_id: option!.id,
         box_number: box!,
         scheduled_start_at: toIsoAt(day.key, chosen!),
-        car_name: car.trim(),
+        car_name: car.trim() || undefined,
         plate: plate.trim() || undefined,
-        client_phone: normalizePhone(phone),
+        client_phone: phone.trim(),
       }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: queueDayKey(washingPointId) });
@@ -384,8 +383,7 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
   useEffect(() => setError(null), [box, serviceId, optionId, time]);
 
   const phoneOk = isValidPhone(phone);
-  const carOk = car.trim().length > 0;
-  const canSubmit = !!service && !!option && box != null && chosen != null && phoneOk && carOk && !mutation.isPending && !isPast;
+  const canSubmit = !!service && !!option && box != null && chosen != null && phoneOk && !mutation.isPending && !isPast;
   const durMin = service?.duration_minutes ?? 0;
 
   const submit = () => {
@@ -486,7 +484,7 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={LABEL}>Авто и клиент</div>
-          <input aria-label="Марка и модель" value={car} onChange={(e) => setCar(e.target.value)} placeholder="Марка и модель" maxLength={255} style={INPUT} />
+          <input aria-label="Марка и модель" value={car} onChange={(e) => setCar(e.target.value)} placeholder="Марка и модель (необязательно)" maxLength={255} style={INPUT} />
           <input aria-label="Госномер" value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="Госномер (необязательно)" maxLength={32} style={INPUT} />
           <input
             aria-label="Телефон"
@@ -494,10 +492,10 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             onBlur={() => setTouchedPhone(true)}
-            placeholder="Телефон клиента, +992…"
+            placeholder="Телефон клиента, например 90 123 45 67"
             style={{ ...INPUT, borderColor: touchedPhone && !phoneOk ? color.bad : '#282823' }}
           />
-          {touchedPhone && !phoneOk && <div style={{ color: color.bad, fontSize: 12 }}>Введите телефон в формате +992XXXXXXXXX</div>}
+          {touchedPhone && !phoneOk && <div style={{ color: color.bad, fontSize: 12 }}>Введите телефон, например 90 123 45 67 или +992901234567</div>}
         </div>
         {error && <div style={{ color: color.bad, fontSize: 12.5 }}>{error}</div>}
       </div>

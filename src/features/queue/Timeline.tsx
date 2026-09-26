@@ -127,7 +127,7 @@ export function Timeline({
                       </span>
                     </div>
                     <div style={{ color: color.textSecondary, fontSize: 11.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: strike }}>
-                      {e.car_name} · {e.service_name}
+                      {[e.car_name, e.service_name].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                 );

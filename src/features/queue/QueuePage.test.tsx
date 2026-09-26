@@ -172,13 +172,13 @@ describe('QueuePage (desktop)', () => {
     await userEvent.click(await screen.findByRole('button', { name: '10:15' }));
     await userEvent.type(screen.getByLabelText('Марка и модель'), 'Kia K5');
     await userEvent.type(screen.getByLabelText('Госномер'), '5510 AC 01');
-    await userEvent.type(screen.getByLabelText('Телефон'), '12345');
+    await userEvent.type(screen.getByLabelText('Телефон'), '123');
     await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
     expect(createManualBooking).not.toHaveBeenCalled();
-    expect(screen.getByText('Введите телефон в формате +992XXXXXXXXX')).toBeInTheDocument();
+    expect(screen.getByText(/Введите телефон, например/)).toBeInTheDocument();
 
     await userEvent.clear(screen.getByLabelText('Телефон'));
-    await userEvent.type(screen.getByLabelText('Телефон'), '+992 90 123 45 67');
+    await userEvent.type(screen.getByLabelText('Телефон'), '90 123 45 67');
     await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
 
     await waitFor(() => expect(createManualBooking).toHaveBeenCalledTimes(1));
@@ -189,9 +189,28 @@ describe('QueuePage (desktop)', () => {
       scheduled_start_at: toIsoAt(tomorrow, 10 * 60 + 15),
       car_name: 'Kia K5',
       plate: '5510 AC 01',
-      client_phone: '+992901234567',
+      client_phone: '90 123 45 67',
     });
     expect(await screen.findByRole('status')).toHaveTextContent('Добавлено · B-11');
+  });
+
+  it('needs only a phone: car fields are optional and omitted from the request', async () => {
+    listQueueDay.mockResolvedValue({ items: [] });
+    createManualBooking.mockResolvedValue(item({ id: 'm2', ticket: 'A-12', source: 'manual', car_name: '' }));
+    renderPage();
+    await screen.findByText('Выберите запись');
+    await userEvent.click(screen.getByRole('button', { name: /завтра/ }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Добавить вручную' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Бокс 2' }));
+    await userEvent.click(await screen.findByRole('button', { name: '10:15' }));
+    await userEvent.type(screen.getByLabelText('Телефон'), '901234567');
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
+
+    await waitFor(() => expect(createManualBooking).toHaveBeenCalledTimes(1));
+    const body = createManualBooking.mock.calls[0][1];
+    expect(body.client_phone).toBe('901234567');
+    expect(body.car_name).toBeUndefined();
+    expect(body.plate).toBeUndefined();
   });
 
   it('shows the API error when the slot was taken', async () => {

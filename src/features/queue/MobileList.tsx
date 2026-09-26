@@ -78,7 +78,7 @@ export function MobileList({
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                     <span style={{ fontSize: 12.5, fontWeight: 700, textDecoration: strike, color: e.status === 'washing' ? color.ok : e.status === 'waiting' ? color.gold : color.textPrimary }}>{e.ticket}</span>
-                    <span style={{ color: color.textPrimaryAlt, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.car_name}</span>
+                    <span style={{ color: color.textPrimaryAlt, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.car_name || e.client_phone}</span>
                   </div>
                   <div style={{ color: color.textSecondary, fontSize: 11.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: strike }}>
                     Бокс {e.box_number} · {e.service_name}
