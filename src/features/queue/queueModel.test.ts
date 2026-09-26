@@ -43,7 +43,8 @@ describe('phone validation', () => {
   it('accepts numbers with or without a country code, rejects too-short input', () => {
     expect(isValidPhone('+992 90 123 45 67')).toBe(true);
     expect(isValidPhone('90 123 45 67')).toBe(true);
-    expect(isValidPhone('12345')).toBe(false);
+    expect(isValidPhone('12345678')).toBe(false);
+    expect(isValidPhone('901234567')).toBe(true);
     expect(isValidPhone('')).toBe(false);
   });
 });

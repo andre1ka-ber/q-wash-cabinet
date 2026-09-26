@@ -231,5 +231,5 @@ export function firstFree(
 // Only a sanity check — the API normalizes the number (adds +992 when the
 // country code is missing) and is the authority on validity.
 export function isValidPhone(raw: string): boolean {
-  return (raw.match(/\d/g) ?? []).length >= 7;
+  return (raw.match(/\d/g) ?? []).length >= 9;
 }

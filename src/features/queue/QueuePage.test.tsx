@@ -175,7 +175,7 @@ describe('QueuePage (desktop)', () => {
     await userEvent.type(screen.getByLabelText('Телефон'), '123');
     await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
     expect(createManualBooking).not.toHaveBeenCalled();
-    expect(screen.getByText(/Введите телефон, например/)).toBeInTheDocument();
+    expect(screen.getByText(/Минимум 9 цифр/)).toBeInTheDocument();
 
     await userEvent.clear(screen.getByLabelText('Телефон'));
     await userEvent.type(screen.getByLabelText('Телефон'), '90 123 45 67');

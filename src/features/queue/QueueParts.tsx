@@ -495,7 +495,7 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
             placeholder="Телефон клиента, например 90 123 45 67"
             style={{ ...INPUT, borderColor: touchedPhone && !phoneOk ? color.bad : '#282823' }}
           />
-          {touchedPhone && !phoneOk && <div style={{ color: color.bad, fontSize: 12 }}>Введите телефон, например 90 123 45 67 или +992901234567</div>}
+          {touchedPhone && !phoneOk && <div style={{ color: color.bad, fontSize: 12 }}>Минимум 9 цифр</div>}
         </div>
         {error && <div style={{ color: color.bad, fontSize: 12.5 }}>{error}</div>}
       </div>
