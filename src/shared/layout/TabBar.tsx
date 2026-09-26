@@ -8,7 +8,8 @@ interface TabItem {
 }
 
 const TABS: TabItem[] = [
-  { key: 'services', label: 'Услуги', to: '/' },
+  { key: 'queue', label: 'Очередь', to: '/' },
+  { key: 'services', label: 'Услуги', to: '/services' },
   { key: 'boxes', label: 'Боксы', to: '/boxes' },
   { key: 'hours', label: 'Часы работы', to: '/hours' },
   { key: 'photos', label: 'Фото и описание', to: '/photos' },

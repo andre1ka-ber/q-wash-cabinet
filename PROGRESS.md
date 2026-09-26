@@ -574,3 +574,27 @@ See `PLAN.md` for the full plan and build order.
   `MouseEvent` at those coordinates instead; noting this in case it
   recurs, since it cost real time to diagnose and isn't a bug in this
   page's code.
+
+- 2026-09-26 — Built the "Очередь" tab (first tab, index route; Услуги moved
+  to `/services`) from the Claude Design mock (`Car Wash Web Apps.dc.html`
+  desktop + `Car Wash Web Apps Mobile.dc.html` mobile). Desktop: a 7-day strip
+  (today + 6), a per-box timeline at 64px/hour whose range comes from that
+  weekday's schedule row (widened to fit any out-of-hours booking), a now-line
+  on today, and a right-hand panel that swaps between "Выберите запись",
+  booking details with status actions, and the manual-add form (clicking empty
+  timeline space prefills box/time). Mobile (`useIsMobile`): day strip, box
+  filter, chronological list with a "сейчас" marker, details and the form as
+  bottom sheets, full-width "Добавить в очередь" button. Actions follow the
+  design: past days are view-only; "Отметить приезд" (`waiting`) only on
+  today; "Не приехал" = `no_show`; "Отменить запись" = `cancel` endpoint;
+  "Вернуть в очередь" = status `queue` from `no_show`/`canceled` (409
+  `slot_unavailable` surfaces if the slot was retaken). Manual add needs a
+  valid E.164 phone (the backend finds-or-creates the client by it), a car
+  name, service, "класс" (= the service's price options), box and a free slot
+  from `GET .../availability`; new bookings always start as `queue`.
+  Live data: `GET .../queue/day`, refetched on every board SSE event
+  (`subscribeToBoardEvents`) with a 15s poll as fallback. All times are
+  formatted/sent in Asia/Dushanbe (+05:00) regardless of browser zone. Tests:
+  Vitest+RTL (`QueuePage.test.tsx`, `queueModel.test.ts`) — 42/42 total,
+  `tsc -b`, `oxlint`, `npm run build` clean. Not verified in a real browser
+  against a running API/DB in this pass.

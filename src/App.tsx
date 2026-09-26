@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { authStore, useAuth, color, font, GhostButton, ConfirmDialog } from 'q-wash-shared';
 import { CabinetShell } from './shared/layout/CabinetShell';
 import { LoginPage } from './features/auth/LoginPage';
+import { QueuePage } from './features/queue/QueuePage';
 import { ServicesPage } from './features/services/ServicesPage';
 import { BoxesPage } from './features/boxes/BoxesPage';
 import { HoursPage } from './features/hours/HoursPage';
@@ -108,7 +109,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<ServicesPage />} />
+        <Route index element={<QueuePage />} />
+        <Route path="services" element={<ServicesPage />} />
         <Route path="boxes" element={<BoxesPage />} />
         <Route path="hours" element={<HoursPage />} />
         <Route path="photos" element={<PhotosPage />} />

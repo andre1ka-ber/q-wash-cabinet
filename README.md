@@ -45,6 +45,7 @@ src/
   main.tsx, App.tsx      router root, auth gate, tab shell
   features/
     auth/                 login screen
+    queue/                 Очередь — day timeline (desktop) / list + sheets (mobile), manual walk-in add
     services/              Услуги — service + price-option table
     boxes/                  Боксы — box card grid + label-edit drawer
     hours/                  Часы работы — per-weekday schedule editor
