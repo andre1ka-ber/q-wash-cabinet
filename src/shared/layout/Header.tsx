@@ -1,35 +1,20 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   authStore,
   color,
   font,
   radius,
-  updateWashingPoint,
   type WashingPoint,
   ConfirmDialog,
 } from 'q-wash-shared';
-import { useMyWashingPointId } from '../useMyWashingPoint';
+import { useAcceptingToggle } from './useAcceptingToggle';
 
 export interface HeaderProps {
   point: WashingPoint | undefined;
 }
 
-// "Принимаем записи" (accepting bookings) is a direct read/write of
-// WashingPoint.status — toggling it fires an instant PATCH, per this
-// app's "default to instant/per-section saves" decision (PLAN.md).
 export function Header({ point }: HeaderProps) {
-  const washingPointId = useMyWashingPointId();
-  const queryClient = useQueryClient();
-
-  const toggleMutation = useMutation({
-    mutationFn: (nextStatus: 'active' | 'paused') => updateWashingPoint(washingPointId, { status: nextStatus }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cabinet', 'washing-point', washingPointId] });
-    },
-  });
-
-  const isActive = point?.status === 'active';
+  const { isActive, canToggle, isPendingReview, isSaving, toggle } = useAcceptingToggle(point);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   return (
@@ -63,9 +48,9 @@ export function Header({ point }: HeaderProps) {
         </div>
   
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '0 0 auto' }}>
-          {point && point.status !== 'pending_review' && (
+          {canToggle && (
             <div
-              onClick={() => !toggleMutation.isPending && toggleMutation.mutate(isActive ? 'paused' : 'active')}
+              onClick={toggle}
               title={isActive ? 'Нажмите, чтобы приостановить приём записей' : 'Нажмите, чтобы возобновить приём записей'}
               style={{
                 display: 'flex',
@@ -73,12 +58,12 @@ export function Header({ point }: HeaderProps) {
                 gap: 8,
                 padding: '8px 14px',
                 borderRadius: radius.pill,
-                cursor: toggleMutation.isPending ? 'default' : 'pointer',
+                cursor: isSaving ? 'default' : 'pointer',
                 background: isActive ? color.okBg : color.muteBg,
                 color: isActive ? color.ok : color.mute,
                 fontSize: 12,
                 fontWeight: 700,
-                opacity: toggleMutation.isPending ? 0.6 : 1,
+                opacity: isSaving ? 0.6 : 1,
               }}
             >
               <span
@@ -92,7 +77,7 @@ export function Header({ point }: HeaderProps) {
               {isActive ? 'Принимаем записи' : 'Записи приостановлены'}
             </div>
           )}
-          {point?.status === 'pending_review' && (
+          {isPendingReview && (
             <div
               style={{
                 padding: '8px 14px',
