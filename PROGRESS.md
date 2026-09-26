@@ -606,3 +606,5 @@ See `PLAN.md` for the full plan and build order.
 - 2026-09-26 — Tests for the mobile navigation (`navItems.test.ts`, `MobileHeader.test.tsx`: title per route, accepting pill toggles/blocked while under review, drawer sections + queue badge + close on navigate, logout confirmation) — 51 tests total.
 
 - 2026-09-26 — Test review: added `HoursPage.test.tsx` (weekday order, open/close defaults, break add/remove, save payload, validation before sending, API error, load error, mobile) and `LoginPage.test.tsx` — 67 tests total.
+
+- 2026-09-26 — More tests: added `ServiceDrawer.test.tsx` (сомони→cents, default handling, per-option patches only for what changed, deletes before creates, deactivate, first-failure stop; mutation-checked against the price conversion) and `BoxDrawer.test.tsx` — 83 tests total. `MobileList`/`Timeline`/`QueueParts` are covered through `QueuePage.test.tsx` rather than on their own.
