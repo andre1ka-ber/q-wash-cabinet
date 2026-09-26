@@ -7,7 +7,6 @@ import {
   radius,
   updateWashingPoint,
   type WashingPoint,
-  LogoMark,
   ConfirmDialog,
 } from 'q-wash-shared';
 import { useMyWashingPointId } from '../useMyWashingPoint';
@@ -46,7 +45,6 @@ export function Header({ point }: HeaderProps) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-          <LogoMark size={40} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{
