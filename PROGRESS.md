@@ -608,3 +608,15 @@ See `PLAN.md` for the full plan and build order.
 - 2026-09-26 — Test review: added `HoursPage.test.tsx` (weekday order, open/close defaults, break add/remove, save payload, validation before sending, API error, load error, mobile) and `LoginPage.test.tsx` — 67 tests total.
 
 - 2026-09-26 — More tests: added `ServiceDrawer.test.tsx` (сомони→cents, default handling, per-option patches only for what changed, deletes before creates, deactivate, first-failure stop; mutation-checked against the price conversion) and `BoxDrawer.test.tsx` — 83 tests total. `MobileList`/`Timeline`/`QueueParts` are covered through `QueuePage.test.tsx` rather than on their own.
+
+- 2026-09-28 — **Sentry error monitoring** (see platform-level `plan-sentry.md`).
+  Same wiring as `q-wash-admin`: `src/main.tsx` calls `initSentry` (from
+  `q-wash-shared`) only when `import.meta.env.PROD`, `<App />` wrapped in its
+  `ErrorBoundary`. `VITE_SENTRY_DSN` added to `vite-env.d.ts`'s
+  `ImportMetaEnv`. This app has no `.env.example` at all (unlike the other
+  three) — `VITE_API_BASE_URL` is injected by `.github/workflows/deploy.yml`
+  at build time, not a checked-in file — so `VITE_SENTRY_DSN` should be set
+  the same way (a repo/CI variable), not via a new local `.env.example`;
+  didn't touch the workflow itself (CI config, out of this task's scope).
+  No DSN yet — no-op until one exists. `npx tsc --noEmit`, `npx vite build`,
+  `npx vitest run` (83/83) all clean.
