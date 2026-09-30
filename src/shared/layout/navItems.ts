@@ -21,6 +21,13 @@ export const NAV_ITEMS: NavItem[] = [
     mobileLabel: 'Фото и описание',
     icon: 'M4 7h3l2-2h6l2 2h3v12H4V7ZM12 10a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z',
   },
+  {
+    key: 'history',
+    to: '/history',
+    label: 'История',
+    mobileLabel: 'История',
+    icon: 'M12 8v5l3 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5',
+  },
   { key: 'reports', to: '/reports', label: 'Отчёты', mobileLabel: 'Отчёты', icon: 'M5 20V11M12 20V5M19 20v-6' },
   { key: 'qrCode', to: '/qr-code', label: 'QR-код', mobileLabel: 'QR-код', icon: 'M4 4h6v6H4V4ZM14 4h6v6h-6V4ZM4 14h6v6H4v-6ZM14 14h3v3h-3v-3ZM20 14v6h-3' },
   {

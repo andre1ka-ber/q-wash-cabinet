@@ -10,6 +10,7 @@ import { ServicesPage } from './features/services/ServicesPage';
 import { BoxesPage } from './features/boxes/BoxesPage';
 import { HoursPage } from './features/hours/HoursPage';
 import { PhotosPage } from './features/photos/PhotosPage';
+import { HistoryPage } from './features/history/HistoryPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { QrCodePage } from './features/qr-code/QrCodePage';
 import { SecurityPage } from './features/security/SecurityPage';
@@ -114,6 +115,7 @@ function AppRoutes() {
         <Route path="services" element={<ServicesPage />} />
         <Route path="boxes" element={<BoxesPage />} />
         <Route path="hours" element={<HoursPage />} />
+        <Route path="history" element={<HistoryPage />} />
         <Route path="photos" element={<PhotosPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="qr-code" element={<QrCodePage />} />

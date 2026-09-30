@@ -637,3 +637,32 @@ See `PLAN.md` for the full plan and build order.
   (seeded `staff` login, real backend): tab renders, reset actually
   round-trips through the live API and shows a fresh generated password.
   `npx tsc --noEmit` and `npx vitest run` (87/87) clean.
+
+- 2026-09-30 — **New "История" (History) tab**: browse a past washing
+  point's full booking list, one calendar day at a time (a native date
+  input, capped at today — no "history" for the future). The "Очередь"
+  tab's own day strip only reaches 6 days forward and never back
+  (`queueModel.ts`'s `buildDays`), so this was the only gap — no new
+  backend endpoint needed, reuses the existing `GET .../queue/day?date=`
+  (`listQueueDay`) that already returns every booking for any given day,
+  any status. Read-only by design (no status-change/cancel actions,
+  unlike "Очередь" — a finished day isn't something to operate on).
+  Defaults to yesterday. Desktop: `DataTable`. Mobile: card list. Reuses
+  `queueModel.ts`'s `STATUS_META`/`SOURCE_LABEL`/`fmtTime` (in-app reuse,
+  not a new `q-wash-shared` export — this stays inside the queue
+  feature's own model). New `NAV_ITEMS` entry.
+  Caught live in the browser, not in a unit test: a native `<input
+  type="date">` fires `onChange` on every keystroke while typing a
+  segment, including transient not-yet-complete values like year "0026"
+  — each was firing a real, wasted API call to the live backend (visible
+  in its request log: `date=0026-10-12`, `date=0002-10-12`). Added a
+  `isCompleteDate` guard (full `YYYY-MM-DD` shape + a plausible year)
+  before updating state — a real robustness fix this session's live
+  verification step exists to catch, not a hypothetical. 5 tests
+  (`HistoryPage.test.tsx`): sorted listing, empty state, load-error,
+  refetch on a real date change, and the transient-value guard
+  (`fireEvent.change`, not `user.type` — jsdom doesn't simulate a native
+  date input's per-segment typing the way a real browser does, same
+  reasoning `HoursPage.tsx` already uses custom hour/minute selects
+  instead of a native time input). `npx tsc --noEmit` and `npx vitest
+  run` (92/92) clean.
