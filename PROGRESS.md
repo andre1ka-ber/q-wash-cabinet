@@ -755,3 +755,23 @@ See `PLAN.md` for the full plan and build order.
   working, the new one logged in, and the tab's own session kept working
   post-change without a forced re-login. `npx tsc --noEmit`, `npx vitest
   run` (114/114), and `npx vite build` all clean.
+
+- 2026-09-30 — **Installable PWA**: new dependency `vite-plugin-pwa`
+  (`npm audit fix` cleared the one unrelated transitive `undici` advisory
+  it briefly pulled in). Real icons (192/512 `any`, 512 `maskable`,
+  180 apple-touch) generated pixel-faithful to the app's existing
+  favicon/`LogoMark` mark, in new `public/`. `vite.config.ts`:
+  `VitePWA({ registerType: 'autoUpdate', manifest: {...} })` — no
+  `runtimeCaching` entries, so the generated service worker only
+  precaches this build's own static output (confirmed by reading the
+  built `dist/sw.js`: exactly one `registerRoute` call, Workbox's own
+  navigation-shell fallback, and nothing that touches `/api/*`). This
+  app's live queue/booking data must never be served stale from a cache
+  — installable is the whole scope here, not offline. `index.html` gained
+  an `apple-touch-icon` link and a `theme-color` meta (the manifest link
+  + SW registration script are auto-injected by the plugin at build
+  time). Verified via `vite build && vite preview` + Playwright: manifest
+  fetches as valid JSON with the right icons/`lang`, the service worker
+  registers, and a real page (with mocked API routes) still loads its
+  data normally — nothing intercepted. `npx tsc --noEmit` and `npx
+  vitest run` (114/114) unaffected.
