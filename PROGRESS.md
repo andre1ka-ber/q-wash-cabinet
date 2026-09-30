@@ -666,3 +666,29 @@ See `PLAN.md` for the full plan and build order.
   reasoning `HoursPage.tsx` already uses custom hour/minute selects
   instead of a native time input). `npx tsc --noEmit` and `npx vitest
   run` (92/92) clean.
+
+- 2026-09-30 — **Restyled "Безопасность" to match the latest Claude Design
+  mock** (`Car Wash Web Apps.dc.html`, project `f6bd39c5-…`, pulled via
+  `DesignSync`). Real gap found and flagged before building: the mock's
+  right-hand card is a self-service password change (current/new/repeat,
+  strength meter, requirement checklist) — `q-wash-api` has no such
+  endpoint, only admin/staff-triggered reset
+  (`POST /washing-points/{id}/credentials/{role}/reset`, random one-time
+  password). User chose to build the mock's UI as-is anyway: `<PasswordChangeCard>`
+  in `SecurityPage.tsx` is local-state only (strength calc + validation
+  copied from the mock's `secStrength`/`secVals`), not wired to any API
+  call — a UI preview, not a working feature, pending a real "set your own
+  password" endpoint. The actual, working credential mechanism is
+  unchanged: `<AccountCard>` (restyled to the mock's avatar/panel look,
+  one per role) still calls the real `getWashingPointCredentials` /
+  `resetWashingPointCredentials` and reveals via `CredentialsRevealModal`.
+  Verified live in the browser: dev server + Playwright driving a
+  headless Chromium with `page.route` stubs for
+  `/auth/login`, `/washing-points/{id}`, `/washing-points/{id}/credentials`,
+  and the reset endpoint (no real backend needed for this pass) —
+  screenshotted the two-card layout, the strength meter/requirements
+  filling in live, the local toast, and the real reset flow's reveal
+  modal, all matching the mock. `SecurityPage.test.tsx` untouched and
+  still passing (same DOM entry points: two "Сбросить пароль" buttons,
+  reveal modal). `npx tsc --noEmit`, `npx vitest run` (92/92), and
+  `npx vite build` all clean.
