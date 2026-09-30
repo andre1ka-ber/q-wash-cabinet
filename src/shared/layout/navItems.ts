@@ -23,6 +23,13 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { key: 'reports', to: '/reports', label: 'Отчёты', mobileLabel: 'Отчёты', icon: 'M5 20V11M12 20V5M19 20v-6' },
   { key: 'qrCode', to: '/qr-code', label: 'QR-код', mobileLabel: 'QR-код', icon: 'M4 4h6v6H4V4ZM14 4h6v6h-6V4ZM4 14h6v6H4v-6ZM14 14h3v3h-3v-3ZM20 14v6h-3' },
+  {
+    key: 'security',
+    to: '/security',
+    label: 'Безопасность',
+    mobileLabel: 'Безопасность',
+    icon: 'M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3Z',
+  },
 ];
 
 export function navItemForPath(pathname: string): NavItem {

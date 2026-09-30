@@ -12,6 +12,7 @@ import { HoursPage } from './features/hours/HoursPage';
 import { PhotosPage } from './features/photos/PhotosPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { QrCodePage } from './features/qr-code/QrCodePage';
+import { SecurityPage } from './features/security/SecurityPage';
 
 const queryClient = new QueryClient();
 
@@ -116,6 +117,7 @@ function AppRoutes() {
         <Route path="photos" element={<PhotosPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="qr-code" element={<QrCodePage />} />
+        <Route path="security" element={<SecurityPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

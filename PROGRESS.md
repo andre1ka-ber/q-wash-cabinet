@@ -620,3 +620,20 @@ See `PLAN.md` for the full plan and build order.
   didn't touch the workflow itself (CI config, out of this task's scope).
   No DSN yet — no-op until one exists. `npx tsc --noEmit`, `npx vite build`,
   `npx vitest run` (83/83) all clean.
+
+- 2026-09-30 — **New "Безопасность" tab**: shows this point's auto-provisioned
+  staff (cabinet login) and worker (worker-app login) usernames, with a
+  "Сбросить пароль" button per role that reveals the new one-time password
+  via `q-wash-shared`'s `CredentialsRevealModal` (moved there from
+  `q-wash-admin` specifically so this app could reuse it). Hits
+  `q-wash-api`'s `GET/POST /washing-points/{id}/credentials...` — staff-
+  accessible for their own point only, which is exactly this app's whole
+  access model (see `App.tsx`'s `ProtectedRoute`), so no new auth wiring
+  needed. New `NAV_ITEMS` entry (`navItems.ts`) — both `TabBar` and
+  `MobileHeader`'s drawer map over it generically already, no special-
+  casing needed. 4 new tests (`SecurityPage.test.tsx`): usernames render,
+  reset reveals the new password without touching the other row's state,
+  load-error and reset-error messages. Verified for real in the browser
+  (seeded `staff` login, real backend): tab renders, reset actually
+  round-trips through the live API and shows a fresh generated password.
+  `npx tsc --noEmit` and `npx vitest run` (87/87) clean.
