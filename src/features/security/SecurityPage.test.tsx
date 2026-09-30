@@ -7,6 +7,8 @@ import { SecurityPage } from './SecurityPage';
 
 const getWashingPointCredentials = vi.fn();
 const resetWashingPointCredentials = vi.fn();
+const changeOwnPassword = vi.fn();
+const setTokens = vi.fn();
 
 vi.mock('q-wash-shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('q-wash-shared')>();
@@ -15,6 +17,8 @@ vi.mock('q-wash-shared', async (importOriginal) => {
     useAuth: () => ({ status: 'authenticated', user: fakeUser }),
     getWashingPointCredentials: (...a: unknown[]) => getWashingPointCredentials(...a),
     resetWashingPointCredentials: (...a: unknown[]) => resetWashingPointCredentials(...a),
+    changeOwnPassword: (...a: unknown[]) => changeOwnPassword(...a),
+    tokenStorage: { setTokens: (...a: unknown[]) => setTokens(...a) },
   };
 });
 
@@ -33,6 +37,12 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
+
+async function fillPasswordForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByPlaceholderText('Текущий пароль'), 'OldPass1');
+  await user.type(screen.getByPlaceholderText('Новый пароль'), 'NewPass123');
+  await user.type(screen.getByPlaceholderText('Повторите новый пароль'), 'NewPass123');
+}
 
 describe('SecurityPage', () => {
   it('shows the staff and worker usernames', async () => {
@@ -76,5 +86,61 @@ describe('SecurityPage', () => {
     await user.click(screen.getAllByRole('button', { name: 'Сбросить пароль' })[0]!);
 
     expect(await screen.findByText('нет аккаунта')).toBeInTheDocument();
+  });
+
+  it('changing the password calls the real endpoint, stores the fresh tokens, and clears the form', async () => {
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    changeOwnPassword.mockResolvedValue({
+      access_token: 'new-access', access_token_expires_at: '2026-01-01T00:00:00Z',
+      refresh_token: 'new-refresh', refresh_token_expires_at: '2026-02-01T00:00:00Z',
+      user: fakeUser,
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('pegasus');
+
+    await fillPasswordForm(user);
+    await user.click(screen.getByRole('button', { name: 'Обновить пароль' }));
+
+    await waitFor(() => expect(changeOwnPassword).toHaveBeenCalledWith('OldPass1', 'NewPass123'));
+    expect(setTokens).toHaveBeenCalledWith('new-access', 'new-refresh');
+    expect(await screen.findByText('Пароль обновлён')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Текущий пароль')).toHaveValue('');
+    expect(screen.getByPlaceholderText('Новый пароль')).toHaveValue('');
+  });
+
+  it('shows the API error message when changing the password fails, and does not touch stored tokens', async () => {
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    changeOwnPassword.mockRejectedValue(new ApiError('invalid_credentials', 'Текущий пароль неверен', 401));
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('pegasus');
+
+    await fillPasswordForm(user);
+    await user.click(screen.getByRole('button', { name: 'Обновить пароль' }));
+
+    expect(await screen.findByText('Текущий пароль неверен')).toBeInTheDocument();
+    expect(setTokens).not.toHaveBeenCalled();
+  });
+
+  it('disables the save button until the new password meets the policy and both copies match', async () => {
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('pegasus');
+
+    const saveButton = screen.getByRole('button', { name: 'Обновить пароль' });
+    expect(saveButton).toBeDisabled();
+
+    await user.type(screen.getByPlaceholderText('Текущий пароль'), 'OldPass1');
+    await user.type(screen.getByPlaceholderText('Новый пароль'), 'weak');
+    await user.type(screen.getByPlaceholderText('Повторите новый пароль'), 'weak');
+    expect(saveButton).toBeDisabled();
+
+    await user.clear(screen.getByPlaceholderText('Новый пароль'));
+    await user.type(screen.getByPlaceholderText('Новый пароль'), 'NewPass123');
+    await user.clear(screen.getByPlaceholderText('Повторите новый пароль'));
+    await user.type(screen.getByPlaceholderText('Повторите новый пароль'), 'NewPass123');
+    expect(saveButton).not.toBeDisabled();
   });
 });

@@ -730,3 +730,28 @@ See `PLAN.md` for the full plan and build order.
   grouped view, the period switch narrowing to one day, the free-text
   filter + reset, and the detail drawer. `npx tsc --noEmit`, `npx vitest
   run` (111/111), and `npx vite build` all clean.
+
+- 2026-09-30 — **Security tab's "Сменить пароль" card wired to a real
+  endpoint**: `q-wash-api` gained `PATCH /auth/password` (self-service
+  change, verifies the current password — see its own `PROGRESS.md`),
+  and `PasswordChangeCard` now calls `q-wash-shared`'s new
+  `changeOwnPassword` instead of only updating local state. On success
+  the response's fresh token pair is stored via `tokenStorage.setTokens`
+  (same as `authStore.login`) — the endpoint revokes this account's
+  *other* sessions, so without re-storing the new pair this tab's own
+  session would go stale the moment its old refresh token got revoked.
+  On failure the real `ApiError` message renders (e.g. a wrong current
+  password), instead of the save silently always "succeeding" the way
+  the local-only mock did. The strength meter/requirements checklist
+  keep their existing client-side copy unchanged — they're now a live
+  preview of the real server-enforced policy (`auth.ValidatePasswordPolicy`)
+  rather than decoration. 3 new `SecurityPage.test.tsx` cases: success
+  stores tokens + shows the toast + clears the form, an API error renders
+  its message and never calls `setTokens`, and the save button's
+  disabled state around policy/match. Verified live end-to-end, no
+  mocks: a throwaway local Postgres + a real running `q-wash-api` +
+  this app's dev server — changed the seeded `staff` account's real
+  password through the actual UI, confirmed the old password stopped
+  working, the new one logged in, and the tab's own session kept working
+  post-change without a forced re-login. `npx tsc --noEmit`, `npx vitest
+  run` (114/114), and `npx vite build` all clean.

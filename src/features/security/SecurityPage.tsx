@@ -5,8 +5,10 @@ import {
   font,
   radius,
   ApiError,
+  changeOwnPassword,
   getWashingPointCredentials,
   resetWashingPointCredentials,
+  tokenStorage,
   GhostButton,
   PrimaryButton,
   CredentialsRevealModal,
@@ -124,17 +126,21 @@ const STRENGTH_LABEL = ['', 'Слабый', 'Средний', 'Хороший', 
 const STRENGTH_COLOR = [color.borderDashed, color.bad, color.gold, color.ok, color.ok];
 
 // Mirrors the Claude Design mock's self-service password-change card
-// (current/new/repeat + strength meter) — local-only UI, not wired to a
-// backend call: q-wash-api has no "set your own password" endpoint, only
-// admin/staff-triggered reset (see docs/API.md's "Washing point
-// credentials"), which stays the actual way to get a new password
-// (AccountCard's "Сбросить пароль" above).
+// (current/new/repeat + strength meter) — wired to the real
+// PATCH /auth/password (q-wash-api), which verifies current_password and
+// enforces the same policy this card's own strength meter/requirements
+// checklist already display (see auth.ValidatePasswordPolicy). On
+// success the endpoint revokes this account's other sessions and returns
+// a fresh token pair for this one, which is why it's stored here the
+// same way authStore.login does — otherwise this tab's own session would
+// go stale the moment its old refresh token got revoked.
 function PasswordChangeCard() {
   const [cur, setCur] = useState('');
   const [nw, setNw] = useState('');
   const [rep, setRep] = useState('');
   const [show, setShow] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const strength = passwordStrength(nw);
   const match = !!nw && nw === rep;
@@ -145,13 +151,23 @@ function PasswordChangeCard() {
     ['Заглавные и строчные буквы', /[A-ZА-Я]/.test(nw) && /[a-zа-я]/.test(nw)],
   ];
 
+  const mutation = useMutation({
+    mutationFn: () => changeOwnPassword(cur, nw),
+    onSuccess: (pair) => {
+      tokenStorage.setTokens(pair.access_token, pair.refresh_token);
+      setError(null);
+      setCur('');
+      setNw('');
+      setRep('');
+      setToast('Пароль обновлён');
+      setTimeout(() => setToast(null), 3200);
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'Не удалось обновить пароль'),
+  });
+
   function save() {
     if (!canSave) return;
-    setCur('');
-    setNw('');
-    setRep('');
-    setToast('Пароль обновлён');
-    setTimeout(() => setToast(null), 3200);
+    mutation.mutate();
   }
 
   return (
@@ -241,7 +257,7 @@ function PasswordChangeCard() {
       <PrimaryButton
         type="button"
         onClick={save}
-        disabled={!canSave}
+        disabled={!canSave || mutation.isPending}
         style={{
           textAlign: 'center',
           padding: 14,
@@ -249,8 +265,9 @@ function PasswordChangeCard() {
           ...(canSave ? {} : { background: color.muteBg, color: color.textFaint, borderColor: color.muteBg }),
         }}
       >
-        Обновить пароль
+        {mutation.isPending ? 'Обновляем…' : 'Обновить пароль'}
       </PrimaryButton>
+      {error && <div style={{ color: color.bad, fontSize: 12 }}>{error}</div>}
       <div style={{ color: color.textFaint, fontSize: 11.5, lineHeight: 1.5 }}>
         Забыли пароль — обратитесь к администратору Q Wash, он выдаст новый по SMS.
       </div>
