@@ -692,3 +692,41 @@ See `PLAN.md` for the full plan and build order.
   still passing (same DOM entry points: two "Сбросить пароль" buttons,
   reveal modal). `npx tsc --noEmit`, `npx vitest run` (92/92), and
   `npx vite build` all clean.
+
+- 2026-09-30 — **Rebuilt "История" to match the Claude Design mock**
+  (same project as the Security-tab pass above). Previous version was a
+  single-day picker only. New `historyModel.ts` (pure, unit-tested) adds:
+  a period switcher (Сегодня / 7 дней / 30 дней / custom range) built by
+  firing one `listQueueDay` request per day in the window and merging
+  client-side — `q-wash-api` has no date-range history endpoint, only
+  per-day, so a custom range is clamped to `MAX_CUSTOM_DAYS` (31) to
+  avoid an unbounded burst of parallel requests; day-grouped list with
+  per-day counts (`pluralRu`), ticket/duration columns, a service+phone+
+  free-text filter row, "Показать ещё" pagination, and a row-click detail
+  drawer. Real gap found and flagged before building, same shape as the
+  Security tab: the mock's per-row photo count and the drawer's "Фото
+  мастера" section aren't backed by anything — `q-wash-api` has no
+  per-booking photo concept at all (only a per-*point* gallery, the
+  "Фото и описание" tab), and `q-wash-worker` doesn't capture any either.
+  User chose to keep that chrome anyway; unlike Security's fake
+  password-save, this never claims a success — `DetailDrawer` always
+  renders the mock's own "Мастер не добавил фото" empty state, honest
+  about there being nothing to show rather than fabricating a count.
+  One real correctness gap caught in live-browser verification and fixed
+  before landing: the desktop table initially matched the mock's grid
+  exactly (8 columns, no status column, since the mock's fake dataset is
+  always "done") but a real day can have `no_show`/`canceled`/etc. rows
+  that looked identical to a completed job — added a compact `StatusPill`
+  under the ticket (only rendered when `status !== 'ready'`) and widened
+  that column (60px → 96px) to fit it without overflow.
+  `historyModel.test.ts` (15 tests): date-window math, labels, filtering,
+  grouping. `HistoryPage.test.tsx` rewritten for the new UI (8 tests) —
+  follows this repo's existing convention of deriving "today" from a real
+  `Date()` rather than faking system time (see `QueuePage.test.tsx`), so
+  it doesn't hardcode a run date. Verified live in the browser: dev
+  server + Playwright, `page.route` stubs for `/auth/login`,
+  `/washing-points/{id}`, and `/washing-points/{id}/queue/day?date=`
+  (no real backend for this pass) — screenshotted the default 7-day
+  grouped view, the period switch narrowing to one day, the free-text
+  filter + reset, and the detail drawer. `npx tsc --noEmit`, `npx vitest
+  run` (111/111), and `npx vite build` all clean.
