@@ -59,6 +59,7 @@ export function ServiceDrawer({ service, onClose }: ServiceDrawerProps) {
   const [name, setName] = useState(service?.name ?? '');
   const [description, setDescription] = useState(service?.description ?? '');
   const [duration, setDuration] = useState(service ? String(service.duration_minutes) : '30');
+  const [queueMinutes, setQueueMinutes] = useState(service?.queue_minutes != null ? String(service.queue_minutes) : '');
   const [isActive, setIsActive] = useState(service?.is_active ?? true);
   const [priceOptions, setPriceOptions] = useState<PriceOptionRow[]>(
     service && service.price_options.length > 0
@@ -93,6 +94,7 @@ export function ServiceDrawer({ service, onClose }: ServiceDrawerProps) {
     mutationFn: async () => {
       const trimmedName = name.trim();
       const durationMinutes = Number(duration);
+      const queueValue = queueMinutes.trim() === '' ? undefined : Number(queueMinutes);
       const cleanRows = priceOptions.map((row) => ({
         ...row,
         name: row.name.trim(),
@@ -104,6 +106,7 @@ export function ServiceDrawer({ service, onClose }: ServiceDrawerProps) {
           name: trimmedName,
           description: description.trim() || undefined,
           duration_minutes: durationMinutes,
+          ...(queueValue !== undefined && { queue_minutes: queueValue }),
           price_options: cleanRows.map((row) => ({
             name: row.name,
             price_cents: row.priceCents,
@@ -116,6 +119,8 @@ export function ServiceDrawer({ service, onClose }: ServiceDrawerProps) {
         name: trimmedName,
         description: description.trim() || undefined,
         duration_minutes: durationMinutes,
+        // Only sent on change; 0 tells the API to clear the override.
+        ...((service!.queue_minutes ?? undefined) !== queueValue && { queue_minutes: queueValue ?? 0 }),
         is_active: isActive,
       });
 
@@ -253,6 +258,22 @@ export function ServiceDrawer({ service, onClose }: ServiceDrawerProps) {
               onChange={(e) => setDuration(e.target.value)}
               required
             />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 260 }}>
+            <div style={labelStyle}>Время в очереди, мин</div>
+            <input
+              style={inputStyle}
+              type="number"
+              min={1}
+              aria-label="Время в очереди, мин"
+              placeholder={duration}
+              value={queueMinutes}
+              onChange={(e) => setQueueMinutes(e.target.value)}
+            />
+            <div style={{ color: color.textFaint, fontSize: 12 }}>
+              Сколько бокс занят на деле. Пусто — как длительность.
+            </div>
           </div>
 
           {isEdit && (

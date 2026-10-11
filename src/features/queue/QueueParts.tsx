@@ -384,7 +384,7 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
 
   const phoneOk = isValidPhone(phone);
   const canSubmit = !!service && !!option && box != null && chosen != null && phoneOk && !mutation.isPending && !isPast;
-  const durMin = service?.duration_minutes ?? 0;
+  const durMin = service?.queue_minutes ?? service?.duration_minutes ?? 0;
 
   const submit = () => {
     setTouchedPhone(true);

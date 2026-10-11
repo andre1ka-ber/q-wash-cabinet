@@ -33,6 +33,7 @@ const fakeService: Service = {
   name: 'Мойка кузова',
   description: null,
   duration_minutes: 30,
+  queue_minutes: null,
   picture_url: null,
   is_active: true,
   price_options: [],

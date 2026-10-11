@@ -32,6 +32,7 @@ const SERVICE: Service = {
   name: 'Экспресс',
   description: 'Быстрая мойка',
   duration_minutes: 30,
+  queue_minutes: null,
   picture_url: null,
   is_active: true,
   price_options: [
@@ -85,6 +86,20 @@ describe('ServiceDrawer — creating', () => {
       price_options: [{ name: 'Седан', price_cents: 19850, is_default: true }],
     });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('sends queue_minutes only when filled in', async () => {
+    resolveAll();
+    const user = userEvent.setup();
+    renderDrawer();
+    await user.type(screen.getByPlaceholderText('Например, Комплексная мойка'), 'Экспресс');
+    await user.type(screen.getByLabelText('Время в очереди, мин'), '60');
+    await user.type(screen.getByPlaceholderText('Седан'), 'Седан');
+    await user.type(screen.getByPlaceholderText('смн.'), '10');
+    await user.click(screen.getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() => expect(createService).toHaveBeenCalledTimes(1));
+    expect(createService.mock.calls[0]![1]).toMatchObject({ duration_minutes: 30, queue_minutes: 60 });
   });
 
   it('adds price rows, and the default follows the radio (removing the default promotes the first row)', async () => {
@@ -172,6 +187,19 @@ describe('ServiceDrawer — editing', () => {
     expect(createPriceOption).not.toHaveBeenCalled();
     expect(updatePriceOption).not.toHaveBeenCalled();
     expect(deletePriceOption).not.toHaveBeenCalled();
+  });
+
+  it('shows the existing queue_minutes, and clearing it sends 0 to drop the override', async () => {
+    resolveAll();
+    const user = userEvent.setup();
+    renderDrawer({ ...SERVICE, queue_minutes: 60 });
+    const field = screen.getByLabelText('Время в очереди, мин');
+    expect(field).toHaveValue(60);
+    await user.clear(field);
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(updateService).toHaveBeenCalledTimes(1));
+    expect(updateService.mock.calls[0]![1].queue_minutes).toBe(0);
   });
 
   it('patches only the price options that changed', async () => {
