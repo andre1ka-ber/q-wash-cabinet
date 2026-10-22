@@ -48,5 +48,6 @@ jobs:
           path: q-wash-cabinet/dist/
           remote_path: /var/www/q-wash-cabinet/dist/
           remote_host: ${{ secrets.DEPLOY_HOST }}
+          remote_port: 2222
           remote_user: ${{ secrets.DEPLOY_USER }}
           remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
