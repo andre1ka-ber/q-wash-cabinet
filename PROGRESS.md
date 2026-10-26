@@ -791,3 +791,9 @@ See `PLAN.md` for the full plan and build order.
   master's real photos** from the new `GET /queue/{id}/photos` (replacing the
   always-empty placeholder). Not in the design/API so left out: boxes' "Услуги
   / Слот / Сегодня" tiles. `tsc -b`, `oxlint`, `vitest run` (127/127) clean.
+- 2026-10-26 — PWA updates: the service worker is now registered from
+  `main.tsx` via `startPwaUpdates` (q-wash-shared) instead of the plugin's
+  injected script (`injectRegister: false`, `skipWaiting`/`clientsClaim` set
+  explicitly). The page reloads when a new version takes over, and re-checks
+  hourly and on return to the app — previously an open tab or a resumed phone
+  app kept running the old build until a hard refresh. `vite build` verified.
