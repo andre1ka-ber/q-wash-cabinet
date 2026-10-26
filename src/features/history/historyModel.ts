@@ -90,7 +90,7 @@ export function filterEntries(entries: HistoryEntry[], { service, phoneQuery, te
   const phoneDigits = phoneQuery.replace(/\D/g, '').replace(/^992/, '');
   const text = textQuery.trim().toLowerCase();
   return entries.filter((e) => {
-    if (service !== 'all' && e.service_name !== service) return false;
+    if (service !== 'all' && !e.items.some((l) => l.service_name === service)) return false;
     if (phoneDigits && !e.client_phone.replace(/\D/g, '').includes(phoneDigits)) return false;
     if (text && !`${e.car_name} ${e.plate ?? ''} ${e.ticket} ${e.client_name ?? ''}`.toLowerCase().includes(text)) return false;
     return true;

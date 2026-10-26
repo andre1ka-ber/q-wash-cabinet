@@ -14,8 +14,10 @@ import {
   StatusPill,
   type Box,
   type QueueDayItem,
+  type Service,
 } from 'q-wash-shared';
 import { formatSomoni } from '../../shared/format';
+import { pluralRu } from '../../shared/pluralRu';
 import {
   actionsFor,
   fmtMin,
@@ -227,8 +229,12 @@ export function BookingDetails({
     ['Госномер', item.plate || '—'],
     ['Клиент', item.client_name || (item.source === 'manual' ? 'Клиент на месте' : '—')],
     ['Телефон', item.client_phone || '—'],
-    ['Услуга', item.service_name],
-    ['Класс', item.price_option_name],
+    ...(item.items.length > 1
+      ? item.items.map((l): [string, string] => [l.service_name, `${l.price_option_name} · ${formatSomoni(l.price_cents)}`])
+      : ([
+          ['Услуга', item.service_name],
+          ['Класс', item.price_option_name],
+        ] as [string, string][])),
     ['Стоимость', formatSomoni(item.price_cents)],
     ['Источник', SOURCE_LABEL[item.source]],
   ];
@@ -311,6 +317,10 @@ const INPUT: CSSProperties = {
   outline: 'none',
 };
 
+const WIZARD_STEPS = ['Бокс', 'Услуга', 'Время', 'Клиент'] as const;
+const WIZARD_TITLES = ['Выберите бокс', 'Выберите услугу', 'Выберите время', 'Данные клиента'] as const;
+const LAST_STEP = WIZARD_STEPS.length - 1;
+
 export interface ManualFormProps {
   washingPointId: string;
   day: DayInfo;
@@ -328,45 +338,60 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
   const queryClient = useQueryClient();
   const openBoxes = boxes.filter((b) => b.is_open);
   const [box, setBox] = useState<number | null>(initialBox ?? openBoxes[0]?.number ?? null);
-  const [serviceId, setServiceId] = useState<string | null>(null);
-  const [optionId, setOptionId] = useState<string | null>(null);
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
+  const [className, setClassName] = useState<string | null>(null);
   const [time, setTime] = useState<number | null>(initialTime ?? null);
   const [car, setCar] = useState('');
   const [plate, setPlate] = useState('');
   const [phone, setPhone] = useState('');
   const [touchedPhone, setTouchedPhone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
 
   const servicesQuery = useQuery({
     queryKey: ['cabinet', 'services', washingPointId],
     queryFn: () => listServices(washingPointId),
   });
   const services = useMemo(() => (servicesQuery.data?.items ?? []).filter((s) => s.is_active), [servicesQuery.data]);
-  const service = services.find((s) => s.id === serviceId) ?? services[0];
-  const option = service?.price_options.find((o) => o.id === optionId) ?? service?.price_options.find((o) => o.is_default) ?? service?.price_options[0];
+  const selected = useMemo(() => services.filter((s) => serviceIds.includes(s.id)), [services, serviceIds]);
+  // The car class is chosen once for the whole booking: each service takes its
+  // price option of that name, else its default one.
+  const classNames = useMemo(() => Array.from(new Set((selected.length ? selected : services).flatMap((s) => s.price_options.map((o) => o.name)))), [selected, services]);
+  const optionFor = (s: Service) => s.price_options.find((o) => o.name === className) ?? s.price_options.find((o) => o.is_default) ?? s.price_options[0];
+  const picks = selected.map((s) => ({ service: s, option: optionFor(s) }));
+  const totalCents = picks.reduce((sum, p) => sum + (p.option?.price_cents ?? 0), 0);
+  // Before anything is picked, size the box cards' "nearest window" for the first service.
+  const availServiceIds = selected.length ? selected.map((s) => s.id) : services[0] ? [services[0].id] : [];
 
   const isPast = day.rel === 'past';
   const availQuery = useQuery({
-    queryKey: ['cabinet', 'availability', washingPointId, service?.id, day.key, items.length],
-    queryFn: () => getAvailability(washingPointId, service!.id, day.key),
-    enabled: !!service && !isPast,
+    queryKey: ['cabinet', 'availability', washingPointId, availServiceIds.join(','), day.key, items.length],
+    queryFn: () => getAvailability(washingPointId, availServiceIds, day.key),
+    enabled: availServiceIds.length > 0 && !isPast,
   });
 
-  const slots = useMemo(() => {
-    if (!availQuery.data || box == null) return [] as number[];
-    return availQuery.data.items
-      .filter((s) => s.available_boxes.includes(box))
-      .map((s) => minutesOfDay(new Date(s.start)))
-      .filter((m) => day.rel !== 'today' || m > nowMin);
-  }, [availQuery.data, box, day.rel, nowMin]);
+  const slotsByBox = useMemo(() => {
+    const byBox = new Map<number, number[]>();
+    if (!availQuery.data) return byBox;
+    for (const b of boxes.filter((x) => x.is_open)) {
+      byBox.set(
+        b.number,
+        availQuery.data.items
+          .filter((s) => s.available_boxes.includes(b.number))
+          .map((s) => minutesOfDay(new Date(s.start)))
+          .filter((m) => day.rel !== 'today' || m > nowMin),
+      );
+    }
+    return byBox;
+  }, [availQuery.data, boxes, day.rel, nowMin]);
+  const slots = box != null ? (slotsByBox.get(box) ?? []) : [];
 
   const chosen = slots.includes(time ?? -1) ? time : time != null ? (slots.find((t) => t >= time) ?? slots[0]) : slots[0];
 
   const mutation = useMutation({
     mutationFn: () =>
       createManualBooking(washingPointId, {
-        service_id: service!.id,
-        price_option_id: option!.id,
+        items: picks.map((p) => ({ service_id: p.service.id, price_option_id: p.option!.id })),
         box_number: box!,
         scheduled_start_at: toIsoAt(day.key, chosen!),
         car_name: car.trim() || undefined,
@@ -380,16 +405,46 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
     onError: (err) => setError(err instanceof ApiError ? err.message : 'Не удалось добавить запись'),
   });
 
-  useEffect(() => setError(null), [box, serviceId, optionId, time]);
+  useEffect(() => setError(null), [box, serviceIds, className, time]);
 
   const phoneOk = isValidPhone(phone);
-  const canSubmit = !!service && !!option && box != null && chosen != null && phoneOk && !mutation.isPending && !isPast;
-  const durMin = service?.queue_minutes ?? service?.duration_minutes ?? 0;
+  const hasServices = picks.length > 0 && picks.every((p) => !!p.option);
+  const canSubmit = hasServices && box != null && chosen != null && phoneOk && !mutation.isPending && !isPast;
+  const durMin = picks.reduce((sum, p) => sum + (p.service.queue_minutes ?? p.service.duration_minutes), 0);
 
-  const submit = () => {
+  const reachable = (i: number) => {
+    if (i <= step) return true;
+    if (box == null || !hasServices) return false;
+    return i === 2 || chosen != null;
+  };
+  const canNext = step === 0 ? box != null : step === 1 ? hasServices : step === 2 ? chosen != null : canSubmit;
+
+  const next = () => {
+    if (step < LAST_STEP) {
+      if (canNext) setStep(step + 1);
+      return;
+    }
     setTouchedPhone(true);
     if (canSubmit) mutation.mutate();
   };
+
+  const cta =
+    step < LAST_STEP
+      ? step === 2 && chosen == null
+        ? 'Нет свободного времени'
+        : step === 1 && !hasServices
+          ? 'Выберите услугу'
+          : 'Далее'
+      : 'Добавить в очередь';
+
+  const reviewRows: [string, string][] = [
+    ['Бокс', box != null ? `Бокс ${box}` : '—'],
+    ...(picks.length
+      ? picks.map((p): [string, string] => [p.service.name, p.option ? formatSomoni(p.option.price_cents) : '—'])
+      : [['Услуга', '—'] as [string, string]]),
+    ['Время', chosen != null ? `${fmtMin(chosen)}–${fmtMin(chosen + durMin)}` : '—'],
+    ['Стоимость', hasServices ? formatSomoni(totalCents) : '—'],
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -403,127 +458,237 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
         </div>
         <CloseButton onClick={onClose} />
       </div>
-      <div style={{ padding: mobile ? '6px 20px 16px' : '8px 18px 16px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: mobile ? 'auto' : undefined }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={LABEL}>Бокс</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {openBoxes.map((b) => (
-              <button key={b.id} type="button" aria-pressed={box === b.number} onClick={() => setBox(b.number)} style={chip(box === b.number, { flex: 1, padding: 11, minWidth: 80 })}>
-                Бокс {b.number}
-              </button>
-            ))}
-            {openBoxes.length === 0 && <div style={{ color: color.bad, fontSize: 12.5 }}>Нет открытых боксов</div>}
+      <div style={{ padding: mobile ? '2px 20px 12px' : '2px 18px 12px', display: 'grid', gridTemplateColumns: `repeat(${WIZARD_STEPS.length},1fr)`, gap: 6 }}>
+        {WIZARD_STEPS.map((name, i) => (
+          <button
+            key={name}
+            type="button"
+            aria-current={i === step ? 'step' : undefined}
+            disabled={!reachable(i)}
+            onClick={() => setStep(i)}
+            style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: 0, border: 'none', background: 'transparent', fontFamily: 'inherit', cursor: reachable(i) ? 'pointer' : 'default', minWidth: 0 }}
+          >
+            <div style={{ height: 4, borderRadius: 2, background: i < step ? '#8A8778' : i === step ? color.gold : '#2B2B26' }} />
+            <div
+              style={{
+                fontSize: 11.5,
+                fontWeight: 600,
+                textAlign: 'left',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                color: i === step ? color.textPrimary : i < step ? '#A5A39B' : '#5A5A52',
+              }}
+            >
+              {name}
+            </div>
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: mobile ? '8px 20px 16px' : '8px 18px 16px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: mobile ? 'auto' : undefined }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ color: color.textTertiary, fontSize: 12 }}>
+            Шаг {step + 1} из {WIZARD_STEPS.length}
           </div>
+          <div style={{ color: color.textPrimary, fontSize: 20, fontWeight: 600, letterSpacing: '-.02em' }}>{WIZARD_TITLES[step]}</div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={LABEL}>Услуга</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {services.map((s) => {
-              const on = s.id === service?.id;
-              const price = (s.price_options.find((o) => o.id === optionId) ?? s.price_options.find((o) => o.is_default) ?? s.price_options[0])?.price_cents;
+        {step === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {openBoxes.map((b) => {
+              const on = box === b.number;
+              const nextFree = slotsByBox.get(b.number)?.[0];
               return (
                 <button
-                  key={s.id}
+                  key={b.id}
                   type="button"
                   aria-pressed={on}
                   onClick={() => {
-                    setServiceId(s.id);
-                    setOptionId(null);
+                    setBox(b.number);
+                    setTime(null);
                   }}
                   style={{
-                    padding: '10px 12px',
-                    borderRadius: 12,
-                    cursor: 'pointer',
                     display: 'flex',
-                    flexDirection: 'column',
-                    gap: 3,
-                    minWidth: 0,
-                    textAlign: 'left',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '14px 16px',
+                    borderRadius: 14,
+                    cursor: 'pointer',
                     fontFamily: 'inherit',
+                    textAlign: 'left',
                     background: on ? 'rgba(242,209,75,.1)' : color.input,
                     border: `1px solid ${on ? color.gold : '#282823'}`,
                   }}
                 >
-                  <span style={{ color: color.textPrimaryAlt, fontSize: 12.5, fontWeight: 600, lineHeight: 1.3 }}>{s.name}</span>
-                  <span style={{ color: color.textTertiary, fontSize: 11 }}>
-                    {s.duration_minutes} мин{price != null ? ` · ${formatSomoni(price)}` : ''}
+                  <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ color: color.textPrimary, fontSize: 15, fontWeight: 600 }}>Бокс {b.number}</span>
+                    <span style={{ color: color.textTertiary, fontSize: 12.5 }}>
+                      {availQuery.isLoading ? 'Загрузка…' : nextFree != null ? `Ближайшее окно · ${fmtMin(nextFree)}` : isPast ? '—' : 'Нет свободных окон'}
+                    </span>
                   </span>
+                  <span style={{ flex: '0 0 20px', width: 20, height: 20, boxSizing: 'border-box', borderRadius: '50%', border: on ? `6px solid ${color.gold}` : '1.5px solid #4E4E47' }} />
                 </button>
               );
             })}
-            {servicesQuery.isSuccess && services.length === 0 && <div style={{ color: color.bad, fontSize: 12.5 }}>Нет активных услуг</div>}
+            {openBoxes.length === 0 && <div style={{ color: color.bad, fontSize: 12.5 }}>Нет открытых боксов</div>}
           </div>
-        </div>
-        {service && service.price_options.length > 1 && (
+        )}
+        {step === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {classNames.length > 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div style={LABEL}>Класс авто</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {classNames.map((name) => {
+                    const on = (className ?? picks[0]?.option?.name ?? classNames[0]) === name;
+                    return (
+                      <button key={name} type="button" aria-pressed={on} onClick={() => setClassName(name)} style={chip(on, { flex: 1, padding: '10px 8px', fontSize: 12.5 })}>
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={LABEL}>Услуги · можно несколько</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {services.map((svc) => {
+                  const on = serviceIds.includes(svc.id);
+                  const price = optionFor(svc)?.price_cents;
+                  return (
+                    <button
+                      key={svc.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => {
+                        setServiceIds(on ? serviceIds.filter((id) => id !== svc.id) : [...serviceIds, svc.id]);
+                        setTime(null);
+                      }}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 12,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        minWidth: 0,
+                        textAlign: 'left',
+                        fontFamily: 'inherit',
+                        background: on ? 'rgba(242,209,75,.1)' : color.input,
+                        border: `1px solid ${on ? color.gold : '#282823'}`,
+                      }}
+                    >
+                      <span
+                        style={{
+                          flex: '0 0 20px',
+                          width: 20,
+                          height: 20,
+                          boxSizing: 'border-box',
+                          borderRadius: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          ...(on ? { background: color.gold, color: color.goldOnLight } : { border: '1.5px solid #4E4E47', color: 'transparent' }),
+                        }}
+                      >
+                        ✓
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <span style={{ color: color.textPrimaryAlt, fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>{svc.name}</span>
+                        <span style={{ color: color.textTertiary, fontSize: 12 }}>{svc.queue_minutes ?? svc.duration_minutes} мин</span>
+                      </span>
+                      {price != null && <span style={{ color: color.gold, fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{formatSomoni(price)}</span>}
+                    </button>
+                  );
+                })}
+                {servicesQuery.isLoading && <div style={{ color: color.textFaint, fontSize: 12.5 }}>Загрузка…</div>}
+                {servicesQuery.isSuccess && services.length === 0 && <div style={{ color: color.bad, fontSize: 12.5 }}>Нет активных услуг</div>}
+              </div>
+              <div style={{ color: color.textTertiary, fontSize: 12 }}>
+                {picks.length ? `${picks.length} ${pluralRu(picks.length, ['услуга', 'услуги', 'услуг'])} · ${durMin} мин · ${formatSomoni(totalCents)}` : 'Выберите одну или несколько услуг'}
+              </div>
+            </div>
+          </div>
+        )}
+        {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={LABEL}>Класс авто</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {service.price_options.map((o) => (
-                <button key={o.id} type="button" aria-pressed={o.id === option?.id} onClick={() => setOptionId(o.id)} style={chip(o.id === option?.id, { flex: 1, padding: '10px 8px', fontSize: 12.5 })}>
-                  {o.name}
+            <div style={LABEL}>
+              Свободные окна · Бокс {box} · {durMin} мин
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+              {slots.map((t) => (
+                <button key={t} type="button" aria-pressed={t === chosen} onClick={() => setTime(t)} style={chip(t === chosen, { padding: '10px 0' })}>
+                  {fmtMin(t)}
                 </button>
+              ))}
+            </div>
+            {availQuery.isLoading && <div style={{ color: color.textFaint, fontSize: 12.5 }}>Загрузка…</div>}
+            {!availQuery.isLoading && slots.length === 0 && (
+              <div style={{ padding: 12, borderRadius: 12, background: 'rgba(208,138,122,.1)', color: color.bad, fontSize: 12.5, lineHeight: 1.5 }}>
+                {isPast ? 'Нельзя добавить запись в прошедший день' : 'В этом боксе нет свободного окна под услугу — выберите другой бокс'}
+              </div>
+            )}
+          </div>
+        )}
+        {step === 3 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={LABEL}>Телефон клиента</div>
+              <input
+                aria-label="Телефон"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onBlur={() => setTouchedPhone(true)}
+                placeholder="Например 90 123 45 67"
+                style={{ ...INPUT, borderColor: touchedPhone && !phoneOk ? color.bad : '#282823' }}
+              />
+              {touchedPhone && !phoneOk && <div style={{ color: color.bad, fontSize: 12 }}>Минимум 9 цифр</div>}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={LABEL}>Автомобиль · необязательно</div>
+              <input aria-label="Марка и модель" value={car} onChange={(e) => setCar(e.target.value)} placeholder="Марка и модель" maxLength={255} style={INPUT} />
+              <input aria-label="Госномер" value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="Госномер" maxLength={32} style={INPUT} />
+            </div>
+            <div style={{ borderRadius: 14, background: color.input, border: '1px solid #282823', padding: '4px 14px' }}>
+              {reviewRows.map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '10px 0', borderBottom: `1px solid ${color.borderAlt}` }}>
+                  <span style={{ color: color.textTertiary, fontSize: 12.5 }}>{k}</span>
+                  <span style={{ color: color.textPrimaryAlt, fontSize: 12.5, fontWeight: 600, textAlign: 'right' }}>{v}</span>
+                </div>
               ))}
             </div>
           </div>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={LABEL}>Время · свободные окна</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
-            {slots.map((t) => (
-              <button key={t} type="button" aria-pressed={t === chosen} onClick={() => setTime(t)} style={chip(t === chosen, { padding: '10px 0' })}>
-                {fmtMin(t)}
-              </button>
-            ))}
-          </div>
-          {availQuery.isLoading && <div style={{ color: color.textFaint, fontSize: 12.5 }}>Загрузка…</div>}
-          {!availQuery.isLoading && slots.length === 0 && (
-            <div style={{ padding: 12, borderRadius: 12, background: 'rgba(208,138,122,.1)', color: color.bad, fontSize: 12.5, lineHeight: 1.5 }}>
-              {isPast ? 'Нельзя добавить запись в прошедший день' : 'В этом боксе нет свободного окна под услугу — выберите другой бокс'}
-            </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={LABEL}>Авто и клиент</div>
-          <input aria-label="Марка и модель" value={car} onChange={(e) => setCar(e.target.value)} placeholder="Марка и модель (необязательно)" maxLength={255} style={INPUT} />
-          <input aria-label="Госномер" value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="Госномер (необязательно)" maxLength={32} style={INPUT} />
-          <input
-            aria-label="Телефон"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            onBlur={() => setTouchedPhone(true)}
-            placeholder="Телефон клиента, например 90 123 45 67"
-            style={{ ...INPUT, borderColor: touchedPhone && !phoneOk ? color.bad : '#282823' }}
-          />
-          {touchedPhone && !phoneOk && <div style={{ color: color.bad, fontSize: 12 }}>Минимум 9 цифр</div>}
-        </div>
         {error && <div style={{ color: color.bad, fontSize: 12.5 }}>{error}</div>}
       </div>
       <div style={{ padding: mobile ? '14px 20px 30px' : '14px 18px 18px', borderTop: `1px solid ${color.borderAlt}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ color: color.textTertiary, fontSize: 12.5 }}>Итог</span>
           <span style={{ color: color.textPrimary, fontSize: 12.5, fontWeight: 700 }}>
-            {chosen != null && box != null && option ? `${fmtMin(chosen)}–${fmtMin(chosen + durMin)} · Бокс ${box} · ${formatSomoni(option.price_cents)}` : '—'}
+            {chosen != null && box != null && hasServices ? `${fmtMin(chosen)}–${fmtMin(chosen + durMin)} · Бокс ${box} · ${formatSomoni(totalCents)}` : '—'}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <GhostButton type="button" onClick={onClose} style={{ flex: 1, padding: 14, borderRadius: 13, fontSize: 14, fontWeight: 600 }}>
-            Отмена
+          <GhostButton type="button" onClick={() => (step === 0 ? onClose() : setStep(step - 1))} style={{ flex: 1, padding: 14, borderRadius: 13, fontSize: 14, fontWeight: 600 }}>
+            {step === 0 ? 'Отмена' : 'Назад'}
           </GhostButton>
           <PrimaryButton
             type="button"
-            onClick={submit}
+            onClick={next}
             disabled={mutation.isPending}
             style={{
               flex: 2,
               padding: 14,
               borderRadius: 13,
               fontSize: 14,
-              cursor: canSubmit ? 'pointer' : 'default',
-              ...(canSubmit ? {} : { background: color.muteBg, borderColor: color.muteBg, color: color.textTertiary }),
+              cursor: canNext ? 'pointer' : 'default',
+              ...(canNext || step === LAST_STEP ? {} : { background: color.muteBg, borderColor: color.muteBg, color: color.textTertiary }),
             }}
           >
-            {chosen != null ? 'Добавить в очередь' : 'Нет свободного времени'}
+            {cta}
           </PrimaryButton>
         </div>
       </div>

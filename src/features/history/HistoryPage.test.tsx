@@ -31,7 +31,7 @@ const TODAY_START = `${TODAY}T05:00:00Z`;
 const TODAY_END = `${TODAY}T05:30:00Z`;
 
 function item(overrides: Partial<QueueDayItem>): QueueDayItem {
-  return {
+  const base: QueueDayItem = {
     id: 'q1',
     status: 'ready',
     ticket: 'A1',
@@ -45,8 +45,10 @@ function item(overrides: Partial<QueueDayItem>): QueueDayItem {
     service_name: 'Комплексная мойка',
     price_option_name: 'Седан',
     price_cents: 12000,
+    items: [],
     ...overrides,
   };
+  return { ...base, items: overrides.items ?? [{ service_id: 's1', service_name: base.service_name, price_option_id: 'p1', price_option_name: base.price_option_name, price_cents: base.price_cents }] };
 }
 
 function onlyToday(items: QueueDayItem[]) {

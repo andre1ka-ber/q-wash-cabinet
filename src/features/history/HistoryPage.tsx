@@ -357,7 +357,7 @@ export function HistoryPage() {
     for (const item of sorted) allEntries.push({ ...item, date });
   });
 
-  const serviceOptions = Array.from(new Set(allEntries.map((e) => e.service_name))).sort();
+  const serviceOptions = Array.from(new Set(allEntries.flatMap((e) => e.items.map((l) => l.service_name)))).sort();
   const filtered = filterEntries(allEntries, { service, phoneQuery, textQuery });
   const { groups, totalCount } = groupByDay(filtered, limit, today);
   const selected = selectedId ? filtered.find((e) => e.id === selectedId) ?? null : null;

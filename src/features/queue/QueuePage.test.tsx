@@ -40,7 +40,7 @@ const today = days[0].key;
 const tomorrow = days[1].key;
 
 function item(over: Partial<QueueDayItem> = {}): QueueDayItem {
-  return {
+  const base: QueueDayItem = {
     id: 'b1',
     status: 'queue',
     ticket: 'A-11',
@@ -55,9 +55,14 @@ function item(over: Partial<QueueDayItem> = {}): QueueDayItem {
     service_name: 'Экспресс',
     price_option_name: 'Седан',
     price_cents: 12800,
+    items: [],
     ...over,
   };
+  return { ...base, items: over.items ?? [{ service_id: 's1', service_name: base.service_name, price_option_id: 'p1', price_option_name: base.price_option_name, price_cents: base.price_cents }] };
 }
+
+const goNext = () => userEvent.click(screen.getByRole('button', { name: 'Далее' }));
+const pickService = (name: RegExp) => userEvent.click(screen.getByRole('button', { name }));
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -92,6 +97,20 @@ beforeEach(() => {
         price_options: [
           { id: 'p1', name: 'Седан', price_cents: 12800, is_default: true },
           { id: 'p2', name: 'Внедорожник', price_cents: 15800, is_default: false },
+        ],
+      },
+      {
+        id: 's2',
+        washing_point_id: 'wp-1',
+        name: 'Полировка',
+        description: null,
+        duration_minutes: 45,
+        queue_minutes: null,
+        picture_url: null,
+        is_active: true,
+        price_options: [
+          { id: 'p3', name: 'Седан', price_cents: 5000, is_default: true },
+          { id: 'p4', name: 'Внедорожник', price_cents: 7000, is_default: false },
         ],
       },
     ],
@@ -169,8 +188,12 @@ describe('QueuePage (desktop)', () => {
     await userEvent.click(screen.getByRole('button', { name: /завтра/ }));
     await userEvent.click(screen.getByRole('button', { name: '+ Добавить вручную' }));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Бокс 2' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Бокс 2/ }));
+    await goNext();
+    await pickService(/Экспресс/);
+    await goNext();
     await userEvent.click(await screen.findByRole('button', { name: '10:15' }));
+    await goNext();
     await userEvent.type(screen.getByLabelText('Марка и модель'), 'Kia K5');
     await userEvent.type(screen.getByLabelText('Госномер'), '5510 AC 01');
     await userEvent.type(screen.getByLabelText('Телефон'), '123');
@@ -184,8 +207,7 @@ describe('QueuePage (desktop)', () => {
 
     await waitFor(() => expect(createManualBooking).toHaveBeenCalledTimes(1));
     expect(createManualBooking).toHaveBeenCalledWith('wp-1', {
-      service_id: 's1',
-      price_option_id: 'p1',
+      items: [{ service_id: 's1', price_option_id: 'p1' }],
       box_number: 2,
       scheduled_start_at: toIsoAt(tomorrow, 10 * 60 + 15),
       car_name: 'Kia K5',
@@ -195,6 +217,66 @@ describe('QueuePage (desktop)', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Добавлено · B-11');
   });
 
+  it('walks the manual form through box, service, time and client steps', async () => {
+    listQueueDay.mockResolvedValue({ items: [] });
+    renderPage();
+    await screen.findByText('Выберите запись');
+    await userEvent.click(screen.getByRole('button', { name: /завтра/ }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Добавить вручную' }));
+
+    expect(screen.getByText('Шаг 1 из 4')).toBeInTheDocument();
+    expect(screen.getByText('Выберите бокс')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Бокс' })).toHaveAttribute('aria-current', 'step');
+
+    await goNext();
+    expect(screen.getByText('Шаг 2 из 4')).toBeInTheDocument();
+    // the step title and the (disabled) CTA both say it until a service is picked
+    expect(screen.getAllByText('Выберите услугу')).toHaveLength(2);
+
+    await pickService(/Экспресс/);
+    await goNext();
+    expect(screen.getByText('Шаг 3 из 4')).toBeInTheDocument();
+    await screen.findByRole('button', { name: '10:00' });
+
+    await goNext();
+    expect(screen.getByText('Шаг 4 из 4')).toBeInTheDocument();
+    expect(screen.getByLabelText('Телефон')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    expect(screen.getByText('Шаг 3 из 4')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Услуга' }));
+    expect(screen.getByText('Шаг 2 из 4')).toBeInTheDocument();
+  });
+
+  it('books several services at once with the summed duration, price and class', async () => {
+    listQueueDay.mockResolvedValue({ items: [] });
+    createManualBooking.mockResolvedValue(item({ id: 'm3', ticket: 'B-11', source: 'manual' }));
+    renderPage();
+    await screen.findByText('Выберите запись');
+    await userEvent.click(screen.getByRole('button', { name: /завтра/ }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Добавить вручную' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Бокс 2/ }));
+    await goNext();
+
+    await pickService(/Экспресс/);
+    await pickService(/Полировка/);
+    await userEvent.click(screen.getByRole('button', { name: 'Внедорожник' }));
+    expect(screen.getByText(/2 услуги · 75 мин · 228 смн\./)).toBeInTheDocument();
+    await goNext();
+
+    await userEvent.click(await screen.findByRole('button', { name: '10:15' }));
+    expect(getAvailability).toHaveBeenLastCalledWith('wp-1', ['s1', 's2'], tomorrow);
+    await goNext();
+    await userEvent.type(screen.getByLabelText('Телефон'), '901234567');
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
+
+    await waitFor(() => expect(createManualBooking).toHaveBeenCalledTimes(1));
+    expect(createManualBooking.mock.calls[0][1].items).toEqual([
+      { service_id: 's1', price_option_id: 'p2' },
+      { service_id: 's2', price_option_id: 'p4' },
+    ]);
+  });
+
   it('needs only a phone: car fields are optional and omitted from the request', async () => {
     listQueueDay.mockResolvedValue({ items: [] });
     createManualBooking.mockResolvedValue(item({ id: 'm2', ticket: 'A-12', source: 'manual', car_name: '' }));
@@ -202,8 +284,12 @@ describe('QueuePage (desktop)', () => {
     await screen.findByText('Выберите запись');
     await userEvent.click(screen.getByRole('button', { name: /завтра/ }));
     await userEvent.click(screen.getByRole('button', { name: '+ Добавить вручную' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Бокс 2' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Бокс 2/ }));
+    await goNext();
+    await pickService(/Экспресс/);
+    await goNext();
     await userEvent.click(await screen.findByRole('button', { name: '10:15' }));
+    await goNext();
     await userEvent.type(screen.getByLabelText('Телефон'), '901234567');
     await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
 
@@ -222,7 +308,11 @@ describe('QueuePage (desktop)', () => {
     await screen.findByText('Выберите запись');
     await userEvent.click(screen.getByRole('button', { name: /завтра/ }));
     await userEvent.click(screen.getByRole('button', { name: '+ Добавить вручную' }));
+    await goNext();
+    await pickService(/Экспресс/);
+    await goNext();
     await screen.findByRole('button', { name: '10:00' });
+    await goNext();
     await userEvent.type(screen.getByLabelText('Марка и модель'), 'Kia K5');
     await userEvent.type(screen.getByLabelText('Телефон'), '+992901234567');
     await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
