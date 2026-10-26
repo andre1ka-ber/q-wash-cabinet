@@ -12,6 +12,7 @@ import {
   type ScheduleRow,
 } from 'q-wash-shared';
 import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
+import { StickyBar, StickyButton } from '../../shared/layout/StickyBar';
 
 const WEEKDAY_LABELS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
@@ -73,6 +74,32 @@ function rowHasBreak(row: ScheduleRow): boolean {
   return Boolean(row.break_start && row.break_end);
 }
 
+// The mobile day bar spans 06:00–24:00 like the design's timeline.
+const BAR_START_HOUR = 6;
+const BAR_SPAN_HOURS = 18;
+
+function barPercent(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  const pct = ((h + m / 60 - BAR_START_HOUR) / BAR_SPAN_HOURS) * 100;
+  return Math.min(100, Math.max(0, pct));
+}
+
+function DayBar({ row }: { row: ScheduleRow }) {
+  const open = row.is_open && row.open_time && row.close_time;
+  const left = open ? barPercent(row.open_time!) : 0;
+  const width = open ? Math.max(0, barPercent(row.close_time!) - left) : 0;
+  const breakLeft = rowHasBreak(row) && open ? barPercent(row.break_start!) : 0;
+  const breakWidth = rowHasBreak(row) && open ? Math.max(0, barPercent(row.break_end!) - breakLeft) : 0;
+  return (
+    <div style={{ height: 6, borderRadius: 4, background: color.panelAlt, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${left}%`, width: `${width}%`, background: 'rgba(242,209,75,.55)' }} />
+      {breakWidth > 0 && (
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${breakLeft}%`, width: `${breakWidth}%`, background: color.panelAlt }} />
+      )}
+    </div>
+  );
+}
+
 export function HoursPage() {
   const washingPointId = useMyWashingPointId();
   const isMobile = useIsMobile();
@@ -84,6 +111,7 @@ export function HoursPage() {
 
   const [rows, setRows] = useState<ScheduleRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingWeekday, setEditingWeekday] = useState<number | null>(null);
 
   // Draft-until-saved (per this app's "Save model" decision, PLAN.md) —
   // seed the local draft once from the server, then leave it alone so a
@@ -137,12 +165,14 @@ export function HoursPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ color: color.textPrimary, fontSize: 19, fontWeight: 700 }}>Часы работы</div>
-        <PrimaryButton onClick={handleSave} disabled={!rows || mutation.isPending}>
-          {mutation.isPending ? 'Сохраняем…' : 'Сохранить'}
-        </PrimaryButton>
-      </div>
+      {!isMobile && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ color: color.textPrimary, fontSize: 19, fontWeight: 700 }}>Часы работы</div>
+          <PrimaryButton onClick={handleSave} disabled={!rows || mutation.isPending}>
+            {mutation.isPending ? 'Сохраняем…' : 'Сохранить'}
+          </PrimaryButton>
+        </div>
+      )}
 
       {scheduleQuery.isError && (
         <div style={{ color: color.bad, fontSize: 13 }}>Не удалось загрузить расписание</div>
@@ -154,10 +184,11 @@ export function HoursPage() {
       ) : (
         <div
           style={{
-            borderRadius: radius.xxxl,
+            borderRadius: isMobile ? 18 : radius.xxxl,
             background: color.panel,
-            border: `1px solid ${color.border}`,
+            border: `1px solid ${isMobile ? color.borderAlt : color.border}`,
             overflow: 'hidden',
+            padding: isMobile ? '4px 16px' : 0,
           }}
         >
           {rows.map((row, i) => {
@@ -220,22 +251,42 @@ export function HoursPage() {
             const toggle = <Toggle checked={row.is_open} onChange={(next) => toggleOpen(row.weekday, next)} />;
             const borderBottom = i === rows.length - 1 ? 'none' : `1px solid ${color.rowBorder}`;
 
+            const isEditing = editingWeekday === row.weekday && row.is_open;
+
             return isMobile ? (
               <div
                 key={row.weekday}
-                style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', borderBottom }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 9,
+                  padding: '13px 0',
+                  borderBottom: i === rows.length - 1 ? 'none' : `1px solid ${color.rowBorder}`,
+                }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  {dayLabel}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1 }}>{dayLabel}</div>
+                  <div
+                    role="button"
+                    aria-label={`Изменить часы: ${WEEKDAY_LABELS[row.weekday]}`}
+                    onClick={() => row.is_open && setEditingWeekday(isEditing ? null : row.weekday)}
+                    style={{
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      color: row.is_open ? color.textSecondary : '#6E6E66',
+                      cursor: row.is_open ? 'pointer' : 'default',
+                    }}
+                  >
+                    {row.is_open ? `${row.open_time ?? '08:00'}–${row.close_time ?? '20:00'}` : 'выходной'}
+                  </div>
                   {toggle}
                 </div>
-                {row.is_open ? (
+                <DayBar row={row} />
+                {isEditing && (
                   <>
                     {timesRow}
                     {breakRow}
                   </>
-                ) : (
-                  <div style={{ color: color.textDim, fontSize: 13 }}>Выходной</div>
                 )}
               </div>
             ) : (
@@ -264,6 +315,14 @@ export function HoursPage() {
             );
           })}
         </div>
+      )}
+
+      {isMobile && (
+        <StickyBar>
+          <StickyButton onClick={handleSave} disabled={!rows || mutation.isPending}>
+            {mutation.isPending ? 'Сохраняем…' : 'Сохранить изменения'}
+          </StickyButton>
+        </StickyBar>
       )}
     </div>
   );

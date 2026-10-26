@@ -183,11 +183,30 @@ describe('HoursPage', () => {
     expect(screen.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
   });
 
-  it('lays out one card per day on mobile', async () => {
-    mobile = true;
-    renderPage();
-    await loaded();
-    expect(screen.getAllByRole('switch')).toHaveLength(7);
-    expect(screen.getAllByText('Выходной')).toHaveLength(1);
+  describe('mobile', () => {
+    it('shows each day as a compact row with its range and a timeline bar', async () => {
+      mobile = true;
+      renderPage();
+      await loaded();
+      expect(screen.getAllByRole('switch')).toHaveLength(7);
+      expect(screen.getAllByText('выходной')).toHaveLength(1);
+      expect(screen.getByText('10:00–14:00')).toBeInTheDocument();
+      expect(screen.queryAllByRole('combobox')).toHaveLength(0); // editing is collapsed
+    });
+
+    it('tapping a day\'s range opens its time editors, and the pinned button saves', async () => {
+      mobile = true;
+      const user = userEvent.setup();
+      renderPage();
+      await loaded();
+
+      await user.click(screen.getByRole('button', { name: 'Изменить часы: Понедельник' }));
+      const monday = screen.getAllByRole('combobox');
+      await user.selectOptions(monday[0]!, '08');
+      await user.click(screen.getByRole('button', { name: 'Сохранить изменения' }));
+
+      await waitFor(() => expect(replaceSchedule).toHaveBeenCalledTimes(1));
+      expect((replaceSchedule.mock.calls[0]![1] as ScheduleRow[])[0]).toMatchObject({ open_time: '08:00', close_time: '18:00' });
+    });
   });
 });

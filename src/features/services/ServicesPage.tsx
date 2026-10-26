@@ -50,20 +50,22 @@ function ServiceCard({
 }) {
   return (
     <div
+      onClick={onOpen}
       style={{
-        borderRadius: radius.lg,
-        border: `1px solid ${color.border}`,
+        borderRadius: 18,
+        border: `1px solid ${color.borderAlt}`,
         background: color.panel,
         padding: 14,
         display: 'flex',
         flexDirection: 'column',
         gap: 12,
+        cursor: 'pointer',
       }}
     >
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <div onClick={onOpen} style={{ flex: 1, minWidth: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ color: color.textPrimaryAlt, fontSize: 14.5, fontWeight: 600 }}>{service.name}</div>
-          <div style={{ color: color.textFaint, fontSize: 12 }}>
+          <div style={{ color: color.textTertiary, fontSize: 12, lineHeight: 1.45 }}>
             {service.description ? `${service.description} · ` : ''}
             {service.duration_minutes} мин
           </div>
@@ -73,27 +75,58 @@ function ServiceCard({
         </div>
       </div>
       {service.price_options.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {service.price_options.map((p) => (
-            <span
+            <div
               key={p.id}
               style={{
-                padding: '4px 9px',
-                borderRadius: radius.sm,
-                background: p.is_default ? color.warnBg : color.muteBg,
-                color: p.is_default ? color.warn : color.textTertiary,
-                fontSize: 12,
-                whiteSpace: 'nowrap',
+                padding: '8px 10px',
+                borderRadius: 10,
+                background: color.panelAlt,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                minWidth: 0,
               }}
             >
-              {p.name}: {formatSomoni(p.price_cents)}
-            </span>
+              <span
+                style={{
+                  color: p.is_default ? color.warn : color.textTertiary,
+                  fontSize: 10.5,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {p.name}
+              </span>
+              <span style={{ color: color.textPrimaryAlt, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                {formatSomoni(p.price_cents)}
+              </span>
+            </div>
           ))}
         </div>
       )}
-      <GhostButton type="button" onClick={onOpen} style={{ padding: '9px 10px', fontSize: 12, textAlign: 'center' }}>
-        Изменить
-      </GhostButton>
+    </div>
+  );
+}
+
+function AddDashedButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <div
+      role="button"
+      onClick={onClick}
+      style={{
+        padding: 14,
+        borderRadius: radius.xl,
+        border: `1px dashed ${color.borderDashed}`,
+        color: color.textTertiary,
+        fontSize: 13,
+        textAlign: 'center',
+        cursor: 'pointer',
+      }}
+    >
+      {label}
     </div>
   );
 }
@@ -113,15 +146,17 @@ export function ServicesPage() {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ color: color.textPrimary, fontSize: 19, fontWeight: 700 }}>Услуги</div>
-          <div style={{ color: color.textFaint, fontSize: 12 }}>
-            {servicesQuery.data ? `${services.length} ${pluralRu(services.length, ['услуга', 'услуги', 'услуг'])}` : ' '}
+      {!isMobile && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ color: color.textPrimary, fontSize: 19, fontWeight: 700 }}>Услуги</div>
+            <div style={{ color: color.textFaint, fontSize: 12 }}>
+              {servicesQuery.data ? `${services.length} ${pluralRu(services.length, ['услуга', 'услуги', 'услуг'])}` : ' '}
+            </div>
           </div>
+          <PrimaryButton onClick={() => setDrawerService('new')}>+ Добавить услугу</PrimaryButton>
         </div>
-        <PrimaryButton onClick={() => setDrawerService('new')}>+ Добавить услугу</PrimaryButton>
-      </div>
+      )}
 
       {servicesQuery.isError && (
         <div style={{ color: color.bad, fontSize: 13, marginBottom: 14 }}>Не удалось загрузить список услуг</div>
@@ -130,14 +165,18 @@ export function ServicesPage() {
 
       {servicesQuery.isLoading ? (
         <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Загрузка…</div>
-      ) : services.length === 0 ? (
-        <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Пока нет ни одной услуги</div>
       ) : isMobile ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {services.length === 0 && (
+            <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Пока нет ни одной услуги</div>
+          )}
           {services.map((s) => (
             <ServiceCard key={s.id} service={s} onOpen={() => setDrawerService(s)} onError={setError} />
           ))}
+          <AddDashedButton label="+ Добавить услугу" onClick={() => setDrawerService('new')} />
         </div>
+      ) : services.length === 0 ? (
+        <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Пока нет ни одной услуги</div>
       ) : (
         <DataTable>
           <DataTableHeaderRow

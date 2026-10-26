@@ -9,6 +9,7 @@ import {
   GhostButton,
   PrimaryButton,
   StatusPill,
+  useIsMobile,
   type Box,
 } from 'q-wash-shared';
 import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
@@ -17,10 +18,12 @@ import { BoxDrawer } from './BoxDrawer';
 
 function BoxCard({
   box,
+  isMobile,
   onConfigure,
   onError,
 }: {
   box: Box;
+  isMobile: boolean;
   onConfigure: () => void;
   onError: (message: string) => void;
 }) {
@@ -35,19 +38,19 @@ function BoxCard({
   return (
     <div
       style={{
-        borderRadius: radius.lg,
-        border: `1px solid ${color.border}`,
+        borderRadius: isMobile ? 18 : radius.lg,
+        border: `1px solid ${isMobile ? color.borderAlt : color.border}`,
         background: color.panel,
-        padding: 18,
+        padding: isMobile ? 16 : 18,
         display: 'flex',
         flexDirection: 'column',
-        gap: 14,
+        gap: isMobile ? 12 : 14,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-          <div style={{ color: color.textPrimaryAlt, fontSize: 15, fontWeight: 700 }}>Бокс {box.number}</div>
-          <div style={{ color: color.textFaint, fontSize: 12 }}>{box.label || 'Без описания'}</div>
+          <div style={{ color: color.textPrimaryAlt, fontSize: 15, fontWeight: isMobile ? 600 : 700 }}>Бокс {box.number}</div>
+          <div style={{ color: isMobile ? color.textTertiary : color.textFaint, fontSize: 12 }}>{box.label || 'Без описания'}</div>
         </div>
         <StatusPill kind={box.is_open ? 'ok' : 'bad'}>{box.is_open ? 'Открыт' : 'Закрыт'}</StatusPill>
       </div>
@@ -81,6 +84,7 @@ function BoxCard({
 
 export function BoxesPage() {
   const washingPointId = useMyWashingPointId();
+  const isMobile = useIsMobile();
   const [drawerBox, setDrawerBox] = useState<Box | 'new' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,15 +97,17 @@ export function BoxesPage() {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ color: color.textPrimary, fontSize: 19, fontWeight: 700 }}>Боксы</div>
-          <div style={{ color: color.textFaint, fontSize: 12 }}>
-            {boxesQuery.data ? `${boxes.length} ${pluralRu(boxes.length, ['бокс', 'бокса', 'боксов'])}` : ' '}
+      {!isMobile && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ color: color.textPrimary, fontSize: 19, fontWeight: 700 }}>Боксы</div>
+            <div style={{ color: color.textFaint, fontSize: 12 }}>
+              {boxesQuery.data ? `${boxes.length} ${pluralRu(boxes.length, ['бокс', 'бокса', 'боксов'])}` : ' '}
+            </div>
           </div>
+          <PrimaryButton onClick={() => setDrawerBox('new')}>+ Добавить бокс</PrimaryButton>
         </div>
-        <PrimaryButton onClick={() => setDrawerBox('new')}>+ Добавить бокс</PrimaryButton>
-      </div>
+      )}
 
       {boxesQuery.isError && (
         <div style={{ color: color.bad, fontSize: 13, marginBottom: 14 }}>Не удалось загрузить список боксов</div>
@@ -111,17 +117,23 @@ export function BoxesPage() {
       {boxesQuery.isLoading ? (
         <div style={{ padding: 20, color: color.textFaint, fontSize: 13 }}>Загрузка…</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: isMobile ? 10 : 14,
+          }}
+        >
           {boxes.length === 0 && (
             <div style={{ gridColumn: '1 / -1', color: color.textFaint, fontSize: 13 }}>Пока нет ни одного бокса</div>
           )}
           {boxes.map((box) => (
-            <BoxCard key={box.id} box={box} onConfigure={() => setDrawerBox(box)} onError={setError} />
+            <BoxCard key={box.id} box={box} isMobile={isMobile} onConfigure={() => setDrawerBox(box)} onError={setError} />
           ))}
           <div
             onClick={() => setDrawerBox('new')}
             style={{
-              borderRadius: radius.lg,
+              borderRadius: isMobile ? radius.xl : radius.lg,
               border: `1px dashed ${color.borderDashed}`,
               display: 'flex',
               alignItems: 'center',
@@ -129,13 +141,14 @@ export function BoxesPage() {
               flexDirection: 'column',
               gap: 6,
               cursor: 'pointer',
-              color: color.textFaint,
+              color: color.textTertiary,
               fontSize: 13,
-              minHeight: 112,
+              minHeight: isMobile ? 0 : 112,
+              padding: isMobile ? 14 : 0,
             }}
           >
-            <span style={{ fontSize: 22 }}>+</span>
-            Добавить бокс
+            {!isMobile && <span style={{ fontSize: 22 }}>+</span>}
+            {isMobile ? '+ Добавить бокс' : 'Добавить бокс'}
           </div>
         </div>
       )}

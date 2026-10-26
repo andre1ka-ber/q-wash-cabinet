@@ -7,11 +7,13 @@ import { ReportsPage } from './ReportsPage';
 
 const getReports = vi.fn();
 const getWashingPoint = vi.fn();
+let mobile = false;
 
 vi.mock('q-wash-shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('q-wash-shared')>();
   return {
     ...actual,
+    useIsMobile: () => mobile,
     useAuth: () => ({ status: 'authenticated', user: fakeUser }),
     getReports: (...args: unknown[]) => getReports(...args),
     getWashingPoint: (...args: unknown[]) => getWashingPoint(...args),
@@ -82,6 +84,7 @@ afterEach(() => {
   // renders with a query that never resolves, so relying on RTL's
   // automatic afterEach cleanup left stale DOM across tests in practice.
   cleanup();
+  mobile = false;
   vi.clearAllMocks();
 });
 
@@ -117,6 +120,22 @@ describe('ReportsPage', () => {
 
     await userEvent.click(screen.getByText('Сегодня'));
     await waitFor(() => expect(getReports).toHaveBeenCalledWith('wp-1', 'today'));
+  });
+
+  describe('mobile', () => {
+    it('moves the exports into a pinned PDF / Excel bar and drops the header buttons', async () => {
+      mobile = true;
+      getReports.mockResolvedValue(fakeReport);
+      getWashingPoint.mockResolvedValue(fakePoint);
+      renderPage();
+
+      await screen.findByText('19 – 25 сентября 2026');
+      expect(screen.queryByText('Скачать PDF')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'PDF' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Excel' })).toBeEnabled();
+      expect(screen.getByText('По услугам')).toBeInTheDocument();
+      expect(screen.getByText('Ароматическая мойка')).toBeInTheDocument();
+    });
   });
 
   it('shows an error state when the report fails to load', async () => {

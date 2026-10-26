@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -7,11 +7,13 @@ import { BoxesPage } from './BoxesPage';
 
 const listBoxes = vi.fn();
 const updateBox = vi.fn();
+let mobile = false;
 
 vi.mock('q-wash-shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('q-wash-shared')>();
   return {
     ...actual,
+    useIsMobile: () => mobile,
     useAuth: () => ({ status: 'authenticated', user: fakeUser }),
     listBoxes: (...args: unknown[]) => listBoxes(...args),
     updateBox: (...args: unknown[]) => updateBox(...args),
@@ -39,7 +41,21 @@ function renderPage() {
 }
 
 afterEach(() => {
+  cleanup();
+  mobile = false;
   vi.clearAllMocks();
+});
+
+describe('BoxesPage — mobile', () => {
+  it('drops the page header and keeps one dashed add button under the cards', async () => {
+    mobile = true;
+    listBoxes.mockResolvedValue({ items: [fakeBox] });
+    renderPage();
+
+    expect(await screen.findByText('Бокс 1')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ Добавить бокс' })).not.toBeInTheDocument(); // header button is desktop-only
+    expect(screen.getByText('+ Добавить бокс')).toBeInTheDocument();
+  });
 });
 
 describe('BoxesPage', () => {

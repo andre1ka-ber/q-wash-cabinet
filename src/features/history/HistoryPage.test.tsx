@@ -1,19 +1,23 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type QueueDayItem, type User } from 'q-wash-shared';
 import { HistoryPage } from './HistoryPage';
 import { addDays } from './historyModel';
 
 const listQueueDay = vi.fn();
+const listBookingPhotos = vi.fn();
+let mobile = false;
 
 vi.mock('q-wash-shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('q-wash-shared')>();
   return {
     ...actual,
     useAuth: () => ({ status: 'authenticated', user: fakeUser }),
+    useIsMobile: () => mobile,
     listQueueDay: (...a: unknown[]) => listQueueDay(...a),
+    listBookingPhotos: (...a: unknown[]) => listBookingPhotos(...a),
   };
 });
 
@@ -58,8 +62,12 @@ function renderPage() {
   );
 }
 
+beforeEach(() => {
+  listBookingPhotos.mockResolvedValue({ items: [] });
+});
 afterEach(() => {
   cleanup();
+  mobile = false;
   vi.clearAllMocks();
 });
 
@@ -135,7 +143,7 @@ describe('HistoryPage', () => {
     expect(await screen.findByText('Toyota Camry')).toBeInTheDocument();
   });
 
-  it('opens the detail drawer on row click, with an always-empty photo section', async () => {
+  it('opens the detail drawer on row click, saying so when the master added no photos', async () => {
     listQueueDay.mockImplementation(onlyToday([item({})]));
     const user = userEvent.setup();
     renderPage();
@@ -144,8 +152,67 @@ describe('HistoryPage', () => {
     await user.click(screen.getByText('Азиз'));
 
     expect(await screen.findByText('Мастер не добавил фото')).toBeInTheDocument();
+    expect(listBookingPhotos).toHaveBeenCalledWith('q1');
     const drawer = screen.getByText('Мастер не добавил фото').closest('[style*="position: fixed"]')!;
     expect(within(drawer as HTMLElement).getByText('A1')).toBeInTheDocument();
     expect(within(drawer as HTMLElement).getByText('+992900000001')).toBeInTheDocument();
+  });
+
+  it('shows the photos the master attached in the detail drawer', async () => {
+    listQueueDay.mockImplementation(onlyToday([item({})]));
+    listBookingPhotos.mockResolvedValue({ items: [{ id: 'p1', url: '/uploads/a.jpg' }, { id: 'p2', url: '/uploads/b.jpg' }] });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Toyota Camry');
+
+    await user.click(screen.getByText('Азиз'));
+
+    expect(await screen.findByText('Фото мастера · 2')).toBeInTheDocument();
+    expect(screen.queryByText('Мастер не добавил фото')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('img')).toHaveLength(2);
+  });
+
+  it('says so when the photos cannot be loaded', async () => {
+    listQueueDay.mockImplementation(onlyToday([item({})]));
+    listBookingPhotos.mockRejectedValue(new Error('down'));
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Toyota Camry');
+
+    await user.click(screen.getByText('Азиз'));
+    expect(await screen.findByText('Не удалось загрузить фото')).toBeInTheDocument();
+  });
+
+  describe('mobile', () => {
+    it('lays rows out as ticket / car + service / price, with the filters in a sheet', async () => {
+      mobile = true;
+      listQueueDay.mockImplementation(
+        onlyToday([item({ plate: '1234 AB 01' }), item({ id: 'q2', ticket: 'A2', car_name: 'Kia Rio', service_name: 'Экспресс' })]),
+      );
+      const user = userEvent.setup();
+      renderPage();
+
+      expect(await screen.findByText('Toyota Camry · 1234 AB 01')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Найти по телефону клиента')).toBeInTheDocument();
+      expect(screen.queryByText('Выполненные услуги', { exact: false })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Фильтры/ }));
+      await user.click(screen.getByRole('button', { name: 'Экспресс' }));
+      await user.click(screen.getByRole('button', { name: /Показать 1/ }));
+
+      expect(screen.queryByText(/Toyota Camry/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Kia Rio/)).toBeInTheDocument();
+    });
+
+    it('opens the detail as a bottom sheet', async () => {
+      mobile = true;
+      listQueueDay.mockImplementation(onlyToday([item({})]));
+      const user = userEvent.setup();
+      renderPage();
+      await user.click(await screen.findByText(/Toyota Camry/));
+
+      const sheet = await screen.findByRole('dialog', { name: 'Запись' });
+      expect(within(sheet).getByText('A1')).toBeInTheDocument();
+    });
   });
 });

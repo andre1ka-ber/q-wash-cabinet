@@ -775,3 +775,19 @@ See `PLAN.md` for the full plan and build order.
   registers, and a real page (with mocked API routes) still loads its
   data normally — nothing intercepted. `npx tsc --noEmit` and `npx
   vitest run` (114/114) unaffected.
+- 2026-10-26 — Mobile pass against the refreshed "Car Wash Web Apps Mobile"
+  design (the shell/drawer, Очередь and Безопасность already matched).
+  Услуги: no page header, cards with 3-column price tiles, tap to edit,
+  dashed "+ Добавить услугу". Боксы: no header, single column, dashed add.
+  Часы работы: compact day rows (range, switch, 06–24 timeline bar with the
+  break cut out); tapping the range opens the time/break editors; save is a
+  pinned "Сохранить изменения". Фото: cover hero + 3-column grid with corner
+  ★/× buttons, design-style description/amenity chips, pinned save. Отчёты:
+  title+range row, one "По услугам" card, exports moved to a pinned PDF/Excel
+  bar (no export sheet: sections/format choices have no backend meaning).
+  История: search fields + period + "Фильтры" bottom sheet (service chips),
+  design rows, detail as a bottom sheet. Очередь: "Добавить в очередь" is now
+  pinned. New `shared/layout/StickyBar.tsx`. **History detail now shows the
+  master's real photos** from the new `GET /queue/{id}/photos` (replacing the
+  always-empty placeholder). Not in the design/API so left out: boxes' "Услуги
+  / Слот / Сегодня" tiles. `tsc -b`, `oxlint`, `vitest run` (127/127) clean.

@@ -264,7 +264,7 @@ describe('QueuePage (mobile)', () => {
   it('opens the manual form as a sheet from the bottom button', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'A-11 Toyota Camry' });
-    await userEvent.click(screen.getByRole('button', { name: '+ Добавить в очередь' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
     expect(screen.getByRole('dialog', { name: 'Добавить в очередь' })).toBeInTheDocument();
   });
 });

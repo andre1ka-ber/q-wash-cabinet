@@ -16,6 +16,7 @@ import {
 } from 'q-wash-shared';
 import { useMyWashingPoint, useMyWashingPointId } from '../../shared/useMyWashingPoint';
 import { formatSomoni } from '../../shared/format';
+import { StickyBar, StickyButton } from '../../shared/layout/StickyBar';
 
 const SERVICES_TABLE_COLUMNS = '2fr 0.8fr 1.1fr 1.3fr';
 
@@ -76,6 +77,14 @@ function visibleTodayBars(bars: ReportsBar[], openTime?: string, closeTime?: str
   const closeHour = Number(closeTime.split(':')[0]);
   if (!Number.isFinite(openHour) || !Number.isFinite(closeHour) || closeHour <= openHour) return bars;
   return bars.slice(openHour, closeHour);
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14" />
+    </svg>
+  );
 }
 
 function csvEscape(value: string): string {
@@ -148,12 +157,18 @@ export function ReportsPage() {
       )}
 
       <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <div style={{ color: color.textPrimary, fontSize: 17, fontWeight: 700 }}>Отчёты</div>
-          <div style={{ color: color.textFaint, fontSize: 13 }}>{report?.range_label ?? ' '}</div>
+        <div
+          style={
+            isMobile
+              ? { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }
+              : { display: 'flex', flexDirection: 'column', gap: 3 }
+          }
+        >
+          <div style={{ color: color.textPrimary, fontSize: 17, fontWeight: isMobile ? 600 : 700 }}>Отчёты</div>
+          <div style={{ color: color.textFaint, fontSize: isMobile ? 12 : 13 }}>{report?.range_label ?? ' '}</div>
         </div>
 
-        <div style={{ display: 'flex', gap: 4, background: color.panel, border: `1px solid ${color.borderAlt}`, padding: 4, borderRadius: radius.lg, width: isMobile ? '100%' : undefined }}>
+        <div style={{ display: 'flex', gap: 4, background: color.panel, border: `1px solid ${color.borderAlt}`, padding: 4, borderRadius: isMobile ? 13 : radius.lg, width: isMobile ? '100%' : undefined, boxSizing: 'border-box' }}>
           {PERIODS.map((p) => (
             <div
               key={p.value}
@@ -175,14 +190,16 @@ export function ReportsPage() {
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginLeft: isMobile ? 0 : 'auto' }}>
-          <GhostButton style={{ flex: isMobile ? 1 : undefined }} onClick={() => setPrintMode(true)} disabled={!report}>
-            Скачать PDF
-          </GhostButton>
-          <GhostButton style={{ flex: isMobile ? 1 : undefined }} onClick={downloadCsv} disabled={!report}>
-            Скачать Excel
-          </GhostButton>
-        </div>
+        {!isMobile && (
+          <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
+            <GhostButton onClick={() => setPrintMode(true)} disabled={!report}>
+              Скачать PDF
+            </GhostButton>
+            <GhostButton onClick={downloadCsv} disabled={!report}>
+              Скачать Excel
+            </GhostButton>
+          </div>
+        )}
       </div>
 
       {query.isLoading && <div style={{ color: color.textFaint, fontSize: 13 }}>Загрузка…</div>}
@@ -225,23 +242,23 @@ export function ReportsPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1.35fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
             {isMobile ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ color: color.textPrimary, fontSize: 14, fontWeight: 600 }}>По услугам</div>
+              <div style={{ borderRadius: 18, background: color.panel, border: `1px solid ${color.borderAlt}`, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 16px 6px', color: color.textPrimary, fontSize: 13.5, fontWeight: 600 }}>По услугам</div>
                 {report.services.length === 0 ? (
-                  <div style={{ color: color.textFaint, fontSize: 12.5 }}>Нет завершённых записей за период</div>
+                  <div style={{ padding: '8px 16px 14px', color: color.textFaint, fontSize: 12.5 }}>Нет завершённых записей за период</div>
                 ) : (
                   report.services.map((s) => (
-                    <div key={s.service_id} style={{ padding: 12, borderRadius: radius.lg, background: color.panel, border: `1px solid ${color.borderAlt}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div key={s.service_id} style={{ padding: '11px 16px', borderTop: `1px solid ${color.rowBorder}`, display: 'flex', flexDirection: 'column', gap: 7 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                        <span style={{ color: color.textPrimaryAlt, fontSize: 13.5, fontWeight: 600 }}>{s.name}</span>
+                        <span style={{ color: color.textPrimaryAlt, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
                         <span style={{ color: color.textPrimaryAlt, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{formatSomoni(s.revenue_cents)}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ color: color.textFaint, fontSize: 12 }}>{s.count} шт</span>
-                        <div style={{ flex: 1, height: 6, borderRadius: 3, background: color.borderAlt, overflow: 'hidden' }}>
+                        <span style={{ color: color.textTertiary, fontSize: 11.5, width: 44 }}>{s.count} шт</span>
+                        <div style={{ flex: 1, height: 5, borderRadius: 3, background: color.borderAlt, overflow: 'hidden' }}>
                           <div style={{ height: '100%', borderRadius: 3, background: color.gold, width: `${s.share_pct}%` }} />
                         </div>
-                        <span style={{ color: color.textFaint, fontSize: 12, width: 32, textAlign: 'right' }}>{s.share_pct}%</span>
+                        <span style={{ color: color.textTertiary, fontSize: 11.5, width: 30, textAlign: 'right' }}>{s.share_pct}%</span>
                       </div>
                     </div>
                   ))
@@ -292,6 +309,19 @@ export function ReportsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {isMobile && (
+        <StickyBar>
+          <StickyButton onClick={() => setPrintMode(true)} disabled={!report}>
+            <DownloadIcon />
+            PDF
+          </StickyButton>
+          <StickyButton accent={false} onClick={downloadCsv} disabled={!report}>
+            <DownloadIcon />
+            Excel
+          </StickyButton>
+        </StickyBar>
       )}
 
       {printMode && report && (
