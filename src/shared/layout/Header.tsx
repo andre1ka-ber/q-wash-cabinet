@@ -6,6 +6,7 @@ import {
   radius,
   type WashingPoint,
   ConfirmDialog,
+  LogoMark,
 } from 'q-wash-shared';
 import { useAcceptingToggle } from './useAcceptingToggle';
 
@@ -21,7 +22,11 @@ export function Header({ point }: HeaderProps) {
     <>
       <div
         style={{
-          padding: '20px 32px',
+          height: 74,
+          flex: '0 0 74px',
+          boxSizing: 'border-box',
+          background: color.surfaceAlt,
+          padding: '0 30px',
           borderBottom: `1px solid ${color.borderAlt}`,
           display: 'flex',
           alignItems: 'center',
@@ -30,12 +35,15 @@ export function Header({ point }: HeaderProps) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+          <LogoMark size={34} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontFamily: font.display,
                 color: color.textPrimary,
-                fontSize: 18,
+                fontSize: 15,
+                fontWeight: 600,
+                letterSpacing: '-.02em',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -43,7 +51,7 @@ export function Header({ point }: HeaderProps) {
             >
               {point?.name ?? '…'}
             </div>
-            <div style={{ color: color.textFaint, fontSize: 12 }}>{point?.address ?? ''}</div>
+            <div style={{ color: color.textFaint, fontSize: 12 }}>{point?.address ? `${point.address} · кабинет мойки` : 'кабинет мойки'}</div>
           </div>
         </div>
   
@@ -56,24 +64,17 @@ export function Header({ point }: HeaderProps) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                padding: '8px 14px',
-                borderRadius: radius.pill,
+                padding: '9px 14px',
+                borderRadius: radius.md,
                 cursor: isSaving ? 'default' : 'pointer',
-                background: isActive ? color.okBg : color.muteBg,
+                background: isActive ? 'rgba(143,203,134,.12)' : color.muteBg,
                 color: isActive ? color.ok : color.mute,
-                fontSize: 12,
-                fontWeight: 700,
+                fontSize: 13,
+                fontWeight: 600,
                 opacity: isSaving ? 0.6 : 1,
               }}
             >
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: 'currentColor',
-                }}
-              />
+              <span aria-hidden>●</span>
               {isActive ? 'Принимаем записи' : 'Записи приостановлены'}
             </div>
           )}
