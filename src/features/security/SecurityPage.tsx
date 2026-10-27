@@ -12,6 +12,7 @@ import {
   GhostButton,
   PrimaryButton,
   CredentialsRevealModal,
+  useIsMobile,
 } from 'q-wash-shared';
 import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
 
@@ -322,6 +323,7 @@ function PasswordChangeCard() {
 // may only act on their own point, same restriction as every other tab
 // here).
 export function SecurityPage() {
+  const isMobile = useIsMobile();
   const washingPointId = useMyWashingPointId();
   const [error, setError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<{ role: Role; username: string; password: string } | null>(null);
@@ -357,7 +359,7 @@ export function SecurityPage() {
       {credentialsQuery.isLoading ? (
         <div style={{ color: color.textFaint, fontSize: 13 }}>Загрузка…</div>
       ) : credentialsQuery.data ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <AccountCard
               role="staff"
