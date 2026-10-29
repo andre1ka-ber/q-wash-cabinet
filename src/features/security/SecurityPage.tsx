@@ -361,18 +361,22 @@ export function SecurityPage() {
       ) : credentialsQuery.data ? (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <AccountCard
-              role="staff"
-              username={credentialsQuery.data.staff.username}
-              onReset={() => resetMutation.mutate('staff')}
-              resetting={resetMutation.isPending && resetMutation.variables === 'staff'}
-            />
-            <AccountCard
-              role="worker"
-              username={credentialsQuery.data.worker.username}
-              onReset={() => resetMutation.mutate('worker')}
-              resetting={resetMutation.isPending && resetMutation.variables === 'worker'}
-            />
+            {credentialsQuery.data.staff && (
+              <AccountCard
+                role="staff"
+                username={credentialsQuery.data.staff.username}
+                onReset={() => resetMutation.mutate('staff')}
+                resetting={resetMutation.isPending && resetMutation.variables === 'staff'}
+              />
+            )}
+            {credentialsQuery.data.worker && (
+              <AccountCard
+                role="worker"
+                username={credentialsQuery.data.worker.username}
+                onReset={() => resetMutation.mutate('worker')}
+                resetting={resetMutation.isPending && resetMutation.variables === 'worker'}
+              />
+            )}
           </div>
           <PasswordChangeCard />
         </div>
