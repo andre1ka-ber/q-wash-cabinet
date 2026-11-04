@@ -11,6 +11,7 @@ const listBoxes = vi.fn();
 const getSchedule = vi.fn();
 const listServices = vi.fn();
 const getAvailability = vi.fn();
+const getOverflowSlots = vi.fn();
 const createManualBooking = vi.fn();
 const updateBookingStatus = vi.fn();
 const cancelBooking = vi.fn();
@@ -28,6 +29,7 @@ vi.mock('q-wash-shared', async (importOriginal) => {
     getSchedule: (...a: unknown[]) => getSchedule(...a),
     listServices: (...a: unknown[]) => listServices(...a),
     getAvailability: (...a: unknown[]) => getAvailability(...a),
+    getOverflowSlots: (...a: unknown[]) => getOverflowSlots(...a),
     createManualBooking: (...a: unknown[]) => createManualBooking(...a),
     updateBookingStatus: (...a: unknown[]) => updateBookingStatus(...a),
     cancelBooking: (...a: unknown[]) => cancelBooking(...a),
@@ -119,6 +121,14 @@ beforeEach(() => {
     items: [
       { start: toIsoAt(tomorrow, 10 * 60), end: toIsoAt(tomorrow, 10 * 60 + 30), available_boxes: [1, 2] },
       { start: toIsoAt(tomorrow, 10 * 60 + 15), end: toIsoAt(tomorrow, 10 * 60 + 45), available_boxes: [2] },
+    ],
+  });
+  // Overflow offers every slot of the day, taken or not (available_boxes empty).
+  getOverflowSlots.mockResolvedValue({
+    items: [
+      { start: toIsoAt(tomorrow, 10 * 60), end: toIsoAt(tomorrow, 10 * 60 + 30), available_boxes: [] },
+      { start: toIsoAt(tomorrow, 10 * 60 + 15), end: toIsoAt(tomorrow, 10 * 60 + 45), available_boxes: [] },
+      { start: toIsoAt(tomorrow, 11 * 60), end: toIsoAt(tomorrow, 11 * 60 + 30), available_boxes: [] },
     ],
   });
   updateBookingStatus.mockResolvedValue({});
@@ -319,6 +329,68 @@ describe('QueuePage (desktop)', () => {
     expect(await screen.findByText('Это время уже занято — выберите другое')).toBeInTheDocument();
   });
 
+  it('shows overflow bookings in the "Вне очереди" column with their own label', async () => {
+    listQueueDay.mockResolvedValue({
+      items: [item({ id: 'x1', ticket: 'O-11', box_number: 0, is_overflow: true, status: 'waiting', source: 'manual', car_name: 'Nissan X-Trail' })],
+    });
+    renderPage();
+    const card = await screen.findByRole('button', { name: 'O-11 Nissan X-Trail' });
+    expect(within(screen.getByTestId('box-col-overflow')).getByRole('button', { name: 'O-11 Nissan X-Trail' })).toBe(card);
+    expect(within(screen.getByTestId('box-col-1')).queryByRole('button', { name: /O-11/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/1 вне очереди/)).toBeInTheDocument();
+
+    await userEvent.click(card);
+    expect(screen.getByText(/· Вне очереди$/)).toBeInTheDocument();
+    // overflow bookings are washed in place: no box to move them to
+    expect(screen.getByRole('button', { name: 'Начать мойку' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Взять в Бокс/ })).not.toBeInTheDocument();
+  });
+
+  it('adds a client out of the queue with every slot offered and no box number sent', async () => {
+    listQueueDay.mockResolvedValue({ items: [] });
+    createManualBooking.mockResolvedValue(item({ id: 'x2', ticket: 'O-11', box_number: 0, is_overflow: true, source: 'manual' }));
+    renderPage();
+    await screen.findByText('Выберите запись');
+    await userEvent.click(screen.getByRole('button', { name: /завтра/ }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Добавить вручную' }));
+
+    await userEvent.click(screen.getByRole('button', { name: /^Вне очереди/ }));
+    await goNext();
+    await pickService(/Экспресс/);
+    await goNext();
+    expect(screen.getByText(/Время прихода · вне очереди/)).toBeInTheDocument();
+    expect(getOverflowSlots).toHaveBeenLastCalledWith('wp-1', ['s1'], tomorrow);
+    await userEvent.click(await screen.findByRole('button', { name: '11:00' }));
+    await goNext();
+    await userEvent.type(screen.getByLabelText('Телефон'), '901234567');
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить в очередь' }));
+
+    await waitFor(() => expect(createManualBooking).toHaveBeenCalledTimes(1));
+    expect(createManualBooking).toHaveBeenCalledWith('wp-1', {
+      items: [{ service_id: 's1', price_option_id: 'p1' }],
+      overflow: true,
+      scheduled_start_at: toIsoAt(tomorrow, 11 * 60),
+      client_phone: '901234567',
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent('Добавлено · O-11');
+    expect(screen.getByRole('status')).toHaveTextContent('вне очереди');
+  });
+
+  it('offers "Добавить вне очереди" when the chosen box has no free window', async () => {
+    listQueueDay.mockResolvedValue({ items: [] });
+    getAvailability.mockResolvedValue({ items: [] });
+    renderPage();
+    await screen.findByText('Выберите запись');
+    await userEvent.click(screen.getByRole('button', { name: /завтра/ }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Добавить вручную' }));
+    await goNext();
+    await pickService(/Экспресс/);
+    await goNext();
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить вне очереди' }));
+    expect(await screen.findByRole('button', { name: '11:00' })).toBeInTheDocument();
+    expect(screen.getByText(/Время прихода · вне очереди/)).toBeInTheDocument();
+  });
+
   it('is view-only and has no add button on a past day', async () => {
     listQueueDay.mockResolvedValue({ items: [item({ status: 'ready' })] });
     renderPage();
@@ -349,6 +421,18 @@ describe('QueuePage (mobile)', () => {
     expect(within(sheet).getByRole('button', { name: 'Отметить приезд' })).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole('button', { name: 'Закрыть' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('filters the mobile list by the "Вне очереди" pseudo-box', async () => {
+    listQueueDay.mockResolvedValue({
+      items: [item(), item({ id: 'x1', ticket: 'O-11', box_number: 0, is_overflow: true, source: 'manual', car_name: 'Nissan X-Trail' })],
+    });
+    renderPage();
+    await screen.findByRole('button', { name: 'A-11 Toyota Camry' });
+    await userEvent.click(screen.getByRole('button', { name: 'Вне очереди' }));
+    expect(screen.queryByRole('button', { name: 'A-11 Toyota Camry' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'O-11 Nissan X-Trail' })).toBeInTheDocument();
+    expect(screen.getByText(/Вне очереди · Экспресс/)).toBeInTheDocument();
   });
 
   it('opens the manual form as a sheet from the bottom button', async () => {

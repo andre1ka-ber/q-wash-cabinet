@@ -9,6 +9,7 @@ import {
   font,
   GhostButton,
   getAvailability,
+  getOverflowSlots,
   listServices,
   PrimaryButton,
   StatusPill,
@@ -20,10 +21,14 @@ import { formatSomoni } from '../../shared/format';
 import { pluralRu } from '../../shared/pluralRu';
 import {
   actionsFor,
+  boxName,
   fmtMin,
   fmtTime,
   isValidPhone,
   minutesOfDay,
+  OVERFLOW_BOX,
+  OVERFLOW_HINT,
+  OVERFLOW_LABEL,
   SOURCE_LABEL,
   STATUS_META,
   toIsoAt,
@@ -247,7 +252,7 @@ export function BookingDetails({
             <StatusPill kind={meta.pill}>{meta.label}</StatusPill>
           </div>
           <div style={{ color: color.textTertiary, fontSize: 12 }}>
-            {fmtTime(item.scheduled_start_at)}–{fmtTime(item.scheduled_end_at)} · Бокс {item.box_number}
+            {fmtTime(item.scheduled_start_at)}–{fmtTime(item.scheduled_end_at)} · {boxName(item)}
           </div>
         </div>
         <CloseButton onClick={onClose} />
@@ -337,7 +342,8 @@ export interface ManualFormProps {
 export function ManualForm({ washingPointId, day, boxes, items, initialBox, initialTime, nowMin, onClose, onCreated, mobile }: ManualFormProps) {
   const queryClient = useQueryClient();
   const openBoxes = boxes.filter((b) => b.is_open);
-  const [box, setBox] = useState<number | null>(initialBox ?? openBoxes[0]?.number ?? null);
+  const [box, setBox] = useState<number>(initialBox ?? openBoxes[0]?.number ?? OVERFLOW_BOX);
+  const isX = box === OVERFLOW_BOX;
   const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [className, setClassName] = useState<string | null>(null);
   const [time, setTime] = useState<number | null>(initialTime ?? null);
@@ -384,7 +390,19 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
     }
     return byBox;
   }, [availQuery.data, boxes, day.rel, nowMin]);
-  const slots = box != null ? (slotsByBox.get(box) ?? []) : [];
+  // Overflow: every slot of the day, taken or not — the time is only the
+  // client's expected arrival.
+  const overflowQuery = useQuery({
+    queryKey: ['cabinet', 'overflow-slots', washingPointId, availServiceIds.join(','), day.key],
+    queryFn: () => getOverflowSlots(washingPointId, availServiceIds, day.key),
+    enabled: isX && availServiceIds.length > 0 && !isPast,
+  });
+  const overflowSlots = useMemo(
+    () => (overflowQuery.data?.items ?? []).map((s) => minutesOfDay(new Date(s.start))).filter((m) => day.rel !== 'today' || m > nowMin),
+    [overflowQuery.data, day.rel, nowMin],
+  );
+  const slots = isX ? overflowSlots : (slotsByBox.get(box) ?? []);
+  const slotsLoading = isX ? overflowQuery.isLoading : availQuery.isLoading;
 
   const chosen = slots.includes(time ?? -1) ? time : time != null ? (slots.find((t) => t >= time) ?? slots[0]) : slots[0];
 
@@ -392,7 +410,7 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
     mutationFn: () =>
       createManualBooking(washingPointId, {
         items: picks.map((p) => ({ service_id: p.service.id, price_option_id: p.option!.id })),
-        box_number: box!,
+        ...(isX ? { overflow: true } : { box_number: box }),
         scheduled_start_at: toIsoAt(day.key, chosen!),
         car_name: car.trim() || undefined,
         plate: plate.trim() || undefined,
@@ -409,15 +427,15 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
 
   const phoneOk = isValidPhone(phone);
   const hasServices = picks.length > 0 && picks.every((p) => !!p.option);
-  const canSubmit = hasServices && box != null && chosen != null && phoneOk && !mutation.isPending && !isPast;
+  const canSubmit = hasServices && chosen != null && phoneOk && !mutation.isPending && !isPast;
   const durMin = picks.reduce((sum, p) => sum + (p.service.queue_minutes ?? p.service.duration_minutes), 0);
 
   const reachable = (i: number) => {
     if (i <= step) return true;
-    if (box == null || !hasServices) return false;
+    if (!hasServices) return false;
     return i === 2 || chosen != null;
   };
-  const canNext = step === 0 ? box != null : step === 1 ? hasServices : step === 2 ? chosen != null : canSubmit;
+  const canNext = step === 0 ? true : step === 1 ? hasServices : step === 2 ? chosen != null : canSubmit;
 
   const next = () => {
     if (step < LAST_STEP) {
@@ -438,7 +456,7 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
       : 'Добавить в очередь';
 
   const reviewRows: [string, string][] = [
-    ['Бокс', box != null ? `Бокс ${box}` : '—'],
+    isX ? ['Очередь', `${OVERFLOW_LABEL} · ${OVERFLOW_HINT}`] : ['Бокс', `Бокс ${box}`],
     ...(picks.length
       ? picks.map((p): [string, string] => [p.service.name, p.option ? formatSomoni(p.option.price_cents) : '—'])
       : [['Услуга', '—'] as [string, string]]),
@@ -529,7 +547,33 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
                 </button>
               );
             })}
-            {openBoxes.length === 0 && <div style={{ color: color.bad, fontSize: 12.5 }}>Нет открытых боксов</div>}
+            <button
+              type="button"
+              aria-pressed={isX}
+              onClick={() => {
+                setBox(OVERFLOW_BOX);
+                setTime(null);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '14px 16px',
+                borderRadius: 14,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                textAlign: 'left',
+                background: isX ? 'rgba(242,209,75,.1)' : color.input,
+                border: `1px dashed ${isX ? color.gold : '#3A3A34'}`,
+              }}
+            >
+              <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span style={{ color: color.textPrimary, fontSize: 15, fontWeight: 600 }}>{OVERFLOW_LABEL}</span>
+                <span style={{ color: color.textTertiary, fontSize: 12.5 }}>Любое время · {OVERFLOW_HINT}</span>
+              </span>
+              <span style={{ flex: '0 0 20px', width: 20, height: 20, boxSizing: 'border-box', borderRadius: '50%', border: isX ? `6px solid ${color.gold}` : '1.5px solid #4E4E47' }} />
+            </button>
+            {openBoxes.length === 0 && <div style={{ color: color.textTertiary, fontSize: 12.5 }}>Нет открытых боксов — клиента можно добавить только вне очереди</div>}
           </div>
         )}
         {step === 1 && (
@@ -615,7 +659,7 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={LABEL}>
-              Свободные окна · Бокс {box} · {durMin} мин
+              {isX ? `Время прихода · ${OVERFLOW_LABEL.toLowerCase()} · ${durMin} мин` : `Свободные окна · Бокс ${box} · ${durMin} мин`}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
               {slots.map((t) => (
@@ -624,10 +668,28 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
                 </button>
               ))}
             </div>
-            {availQuery.isLoading && <div style={{ color: color.textFaint, fontSize: 12.5 }}>Загрузка…</div>}
-            {!availQuery.isLoading && slots.length === 0 && (
+            {slotsLoading && <div style={{ color: color.textFaint, fontSize: 12.5 }}>Загрузка…</div>}
+            {!slotsLoading && slots.length === 0 && (
               <div style={{ padding: 12, borderRadius: 12, background: 'rgba(208,138,122,.1)', color: color.bad, fontSize: 12.5, lineHeight: 1.5 }}>
-                {isPast ? 'Нельзя добавить запись в прошедший день' : 'В этом боксе нет свободного окна под услугу — выберите другой бокс'}
+                {isPast
+                  ? 'Нельзя добавить запись в прошедший день'
+                  : isX
+                    ? 'На этот день нет времени работы'
+                    : 'В этом боксе нет свободного окна под услугу — выберите другой бокс или добавьте клиента вне очереди.'}
+                {!isPast && !isX && (
+                  <div style={{ marginTop: 8 }}>
+                    <GhostButton
+                      type="button"
+                      onClick={() => {
+                        setBox(OVERFLOW_BOX);
+                        setTime(null);
+                      }}
+                      style={{ padding: '9px 14px', borderRadius: 11, fontSize: 12.5 }}
+                    >
+                      Добавить вне очереди
+                    </GhostButton>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -668,7 +730,7 @@ export function ManualForm({ washingPointId, day, boxes, items, initialBox, init
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ color: color.textTertiary, fontSize: 12.5 }}>Итог</span>
           <span style={{ color: color.textPrimary, fontSize: 12.5, fontWeight: 700 }}>
-            {chosen != null && box != null && hasServices ? `${fmtMin(chosen)}–${fmtMin(chosen + durMin)} · Бокс ${box} · ${formatSomoni(totalCents)}` : '—'}
+            {chosen != null && hasServices ? `${fmtMin(chosen)}–${fmtMin(chosen + durMin)} · ${isX ? 'вне очереди' : `Бокс ${box}`} · ${formatSomoni(totalCents)}` : '—'}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>

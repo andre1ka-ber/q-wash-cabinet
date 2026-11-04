@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionsFor, buildDays, dateKey, firstFree, fmtMin, isValidPhone, timelineRange, toIsoAt } from './queueModel';
+import { actionsFor, boxName, buildDays, dateKey, firstFree, fmtMin, isOverflow, isValidPhone, timelineRange, toIsoAt } from './queueModel';
 
 describe('time helpers (Asia/Dushanbe)', () => {
   it('formats the business date/time regardless of the browser zone', () => {
@@ -65,5 +65,15 @@ describe('timelineRange / firstFree', () => {
       { box_number: 1, status: 'queue', scheduled_start_at: '2026-09-27T09:00:00+05:00', scheduled_end_at: '2026-09-27T10:00:00+05:00' },
     ] as Parameters<typeof firstFree>[0];
     expect(firstFree(items, boxes, 540, 1260, null)).toEqual({ min: 600, box: 1 });
+  });
+});
+
+describe('overflow helpers', () => {
+  it('detects overflow by flag or by box 0 and names the virtual box', () => {
+    expect(isOverflow({ is_overflow: true, box_number: 0 })).toBe(true);
+    expect(isOverflow({ box_number: 0 })).toBe(true);
+    expect(isOverflow({ is_overflow: false, box_number: 2 })).toBe(false);
+    expect(boxName({ is_overflow: true, box_number: 0 })).toBe('Вне очереди');
+    expect(boxName({ box_number: 2 })).toBe('Бокс 2');
   });
 });

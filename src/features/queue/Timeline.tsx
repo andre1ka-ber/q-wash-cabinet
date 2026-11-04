@@ -1,6 +1,6 @@
 import type { MouseEvent } from 'react';
 import { color, type Box, type QueueDayItem } from 'q-wash-shared';
-import { fmtMin, fmtTime, HOUR_PX, minutesOfDay, STATUS_META } from './queueModel';
+import { fmtMin, fmtTime, HOUR_PX, isOverflow, minutesOfDay, OVERFLOW_BOX, OVERFLOW_HINT, OVERFLOW_LABEL, STATUS_META } from './queueModel';
 
 const GRID_BG =
   'repeating-linear-gradient(180deg, #262623 0 1px, transparent 1px 32px, #1E1E1B 32px 33px, transparent 33px 64px)';
@@ -54,6 +54,13 @@ export function Timeline({
             </div>
           );
         })}
+        <div data-testid="box-head-overflow" style={{ flex: 1, minWidth: 0, padding: '12px 14px', borderLeft: `1px solid ${color.borderAlt}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+          <span style={{ color: color.textPrimary, fontSize: 13.5, fontWeight: 600 }}>
+            {OVERFLOW_LABEL}
+            <span style={{ color: color.textTertiary, fontWeight: 500 }}> · {OVERFLOW_HINT}</span>
+          </span>
+          <span style={{ color: color.textTertiary, fontSize: 12 }}>{items.filter((e) => isOverflow(e) && e.status !== 'canceled').length} зап.</span>
+        </div>
       </div>
       <div style={{ position: 'relative', display: 'flex', height, overflowY: 'auto' }}>
         <div style={{ width: 56, flex: '0 0 56px', display: 'flex', flexDirection: 'column' }}>
@@ -63,16 +70,16 @@ export function Timeline({
             </div>
           ))}
         </div>
-        {boxes.map((b) => (
+        {[...boxes.map((b) => ({ key: b.id, number: b.number })), { key: 'overflow', number: OVERFLOW_BOX }].map((b) => (
           <div
-            key={b.id}
-            data-testid={`box-col-${b.number}`}
+            key={b.key}
+            data-testid={b.number === OVERFLOW_BOX ? 'box-col-overflow' : `box-col-${b.number}`}
             onClick={columnClick(b.number)}
             title={canAdd ? 'Нажмите на пустое место, чтобы добавить запись' : undefined}
             style={{ position: 'relative', flex: 1, minWidth: 0, borderLeft: `1px solid ${color.borderAlt}`, cursor: canAdd ? 'copy' : 'default', background: GRID_BG }}
           >
             {items
-              .filter((e) => e.box_number === b.number)
+              .filter((e) => (b.number === OVERFLOW_BOX ? isOverflow(e) : !isOverflow(e) && e.box_number === b.number))
               .map((e) => {
                 const meta = STATUS_META[e.status];
                 const start = minutesOfDay(new Date(e.scheduled_start_at));
@@ -108,7 +115,7 @@ export function Timeline({
                       gap: 3,
                       zIndex: 2,
                       background: meta.bg,
-                      border: `1px solid ${meta.border}`,
+                      border: `1px ${isOverflow(e) ? 'dashed' : 'solid'} ${meta.border}`,
                       opacity: meta.dim ? 0.6 : 1,
                       boxShadow: on ? `0 0 0 2px ${color.gold}` : undefined,
                     }}

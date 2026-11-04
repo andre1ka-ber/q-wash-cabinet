@@ -7,6 +7,7 @@ import { MobileList } from './MobileList';
 import { BookingDetails, BottomSheet, DayStrip, ManualForm, Toast } from './QueueParts';
 import { Timeline } from './Timeline';
 import {
+  boxName,
   buildDays,
   dateKey,
   dayInfoFor,
@@ -91,12 +92,13 @@ export function QueuePage() {
   function onCreated(created: QueueDayItem) {
     setForm(null);
     setSelectedId(created.id);
-    setToast(`Добавлено · ${created.ticket} · ${fmtTime(created.scheduled_start_at)} · Бокс ${created.box_number}`);
+    setToast(`Добавлено · ${created.ticket} · ${fmtTime(created.scheduled_start_at)} · ${created.is_overflow || created.box_number === 0 ? 'вне очереди' : boxName(created)}`);
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 3500);
   }
 
-  const canAdd = day.rel !== 'past' && boxes.some((b) => b.is_open);
+  // Overflow ('Вне очереди') works even when every box is closed.
+  const canAdd = day.rel !== 'past';
   const summary = summaryText(items, day.rel, firstFree(items, boxes, openMin, closeMin, nowMin));
 
   const details = selected && (

@@ -802,3 +802,13 @@ See `PLAN.md` for the full plan and build order.
 - 2026-10-26 — Multi-service bookings in the wizard's «Услуга» step: several services can be ticked (checkbox rows, "N услуги · M мин · price" summary), car class is chosen once by price-option name and each service takes its option of that name (else its default). Availability is requested for all picked service ids (slot length = summed queue minutes), `createManualBooking` sends `items`, the review rows list every service. The booking details sheet lists each service with class and price; History's service filter matches any item (`QueueDayItem.items`, now required in the type — test fixtures derive it from `service_name`). Needs the API with migration 000029 deployed first (the single-id availability call still works against the old API, the `items` create body does not). `tsc -b`, `oxlint`, `vitest run` (129/129) clean; not checked in a browser.
 - 2026-10-29 — Security tab: credentials API now returns `null` for a role without an account; the card is
   skipped instead of the whole tab failing.
+
+- 2026-11-04 — «Вне очереди» (overflow box) on Очередь, per the updated `Car Wash Web Apps Mobile.dc.html`. Needs the API
+  with migration 000030. Timeline gets a dashed third column «Вне очереди · не видно клиентам» (mobile list: a «Вне очереди»
+  filter chip, rows labelled «Вне очереди»); the wizard's «Бокс» step has a dashed «Вне очереди» option, and when a box has no
+  free window the «Время» step offers «Добавить вне очереди». For overflow the time step lists **every** slot of the day
+  (`getOverflowSlots` → `GET .../queue/overflow-slots`) and the create call sends `overflow: true` without `box_number`.
+  «Добавить» no longer needs an open box. Summary adds «N вне очереди» for overflow clients already on site. Overflow
+  bookings use the usual actions (приезд / начать / завершить мойку) in place — the design's «Взять в Бокс N» is
+  intentionally not built (decided with the user: no move to a real box). Ticket prefix is the API's `O-` (design shows `X-`).
+  `tsc -b`, `oxlint`, `vitest run` (134/134), `vite build` clean; not checked in a browser.

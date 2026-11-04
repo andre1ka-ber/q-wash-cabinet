@@ -124,6 +124,21 @@ export const STATUS_META: Record<BookingStatus, StatusMeta> = {
   canceled: { label: 'Отменён', pill: 'bad', border: '#232320', bg: '#151513', dim: true },
 };
 
+// The virtual "Вне очереди" box: bookings added without a free slot. Not a real
+// box (no Box row, not offered to customers); its times are only the expected
+// arrival and may overlap anything.
+export const OVERFLOW_BOX = 0;
+export const OVERFLOW_LABEL = 'Вне очереди';
+export const OVERFLOW_HINT = 'не видно клиентам';
+
+export function isOverflow(e: Pick<QueueDayItem, 'is_overflow' | 'box_number'>): boolean {
+  return e.is_overflow === true || e.box_number === OVERFLOW_BOX;
+}
+
+export function boxName(e: Pick<QueueDayItem, 'is_overflow' | 'box_number'>): string {
+  return isOverflow(e) ? OVERFLOW_LABEL : `Бокс ${e.box_number}`;
+}
+
 export const SOURCE_LABEL = { app: 'Приложение', qr: 'QR у входа', manual: 'Вручную' } as const;
 
 export type ActionKind = 'acc' | 'ghost' | 'bad';
@@ -193,7 +208,9 @@ export function summaryText(items: QueueDayItem[], rel: DayInfo['rel'], firstFre
   const manual = items.filter((e) => e.source === 'manual').length;
   const free =
     rel === 'past' ? 'день завершён' : firstFree ? `свободно с ${fmtMin(firstFree.min)} · Бокс ${firstFree.box}` : 'свободных окон нет';
-  return `${active} записей · ${manual} вручную · ${free}`;
+  // Overflow clients who are already on site are worth surfacing in the summary.
+  const waitingOverflow = items.filter((e) => isOverflow(e) && e.status === 'waiting').length;
+  return `${active} записей · ${manual} вручную${waitingOverflow ? ` · ${waitingOverflow} вне очереди` : ''} · ${free}`;
 }
 
 export interface FirstFree {
