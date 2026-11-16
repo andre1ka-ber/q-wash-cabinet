@@ -116,6 +116,13 @@ export interface StatusMeta {
 }
 
 export const STATUS_META: Record<BookingStatus, StatusMeta> = {
+  // Striped yellow: an online booking waiting for staff to confirm it.
+  pending: {
+    label: 'Ждёт подтверждения',
+    pill: 'warn',
+    border: 'rgba(242,209,75,.8)',
+    bg: 'repeating-linear-gradient(135deg, rgba(242,209,75,.12) 0 8px, rgba(242,209,75,.04) 8px 16px)',
+  },
   queue: { label: 'Записан', pill: 'mute', border: '#31312B', bg: '#1D1D1A' },
   waiting: { label: 'Приехал', pill: 'warn', border: 'rgba(242,209,75,.55)', bg: 'rgba(242,209,75,.08)' },
   washing: { label: 'Моется', pill: 'ok', border: 'rgba(143,203,134,.5)', bg: 'rgba(143,203,134,.08)' },
@@ -144,7 +151,9 @@ export const SOURCE_LABEL = { app: 'Приложение', qr: 'QR у входа
 export type ActionKind = 'acc' | 'ghost' | 'bad';
 export type ActionType =
   | { type: 'status'; status: 'queue' | 'waiting' | 'washing' | 'ready' | 'no_show' }
-  | { type: 'cancel' };
+  | { type: 'cancel' }
+  | { type: 'confirm' }
+  | { type: 'reject' };
 
 export interface BookingAction {
   label: string;
@@ -154,11 +163,20 @@ export interface BookingAction {
 
 // Mirrors the design's actions(): past days are view-only; "arrived" is only
 // offered on today (a future booking can't have arrived yet).
-export function actionsFor(status: BookingStatus, rel: DayInfo['rel']): BookingAction[] {
+// canDecide is false for worker accounts: confirm/reject are staff/admin only
+// (the API 403s a worker), so a pending booking is view-only for them.
+export function actionsFor(status: BookingStatus, rel: DayInfo['rel'], canDecide = true): BookingAction[] {
   if (rel === 'past') return [];
   const cancel: BookingAction = { label: 'Отменить запись', kind: 'bad', run: { type: 'cancel' } };
   const noShow: BookingAction = { label: 'Не приехал', kind: 'ghost', run: { type: 'status', status: 'no_show' } };
   switch (status) {
+    case 'pending':
+      return canDecide
+        ? [
+            { label: 'Подтвердить запись', kind: 'acc', run: { type: 'confirm' } },
+            { label: 'Отклонить', kind: 'bad', run: { type: 'reject' } },
+          ]
+        : [];
     case 'queue':
       return rel === 'today'
         ? [{ label: 'Отметить приезд', kind: 'acc', run: { type: 'status', status: 'waiting' } }, noShow, cancel]
@@ -210,7 +228,8 @@ export function summaryText(items: QueueDayItem[], rel: DayInfo['rel'], firstFre
     rel === 'past' ? 'день завершён' : firstFree ? `свободно с ${fmtMin(firstFree.min)} · Бокс ${firstFree.box}` : 'свободных окон нет';
   // Overflow clients who are already on site are worth surfacing in the summary.
   const waitingOverflow = items.filter((e) => isOverflow(e) && e.status === 'waiting').length;
-  return `${active} записей · ${manual} вручную${waitingOverflow ? ` · ${waitingOverflow} вне очереди` : ''} · ${free}`;
+  const pending = items.filter((e) => e.status === 'pending').length;
+  return `${active} записей · ${manual} вручную${pending ? ` · ${pending} ждут подтверждения` : ''}${waitingOverflow ? ` · ${waitingOverflow} вне очереди` : ''} · ${free}`;
 }
 
 export interface FirstFree {

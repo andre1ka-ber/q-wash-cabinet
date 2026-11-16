@@ -122,7 +122,7 @@ export function Timeline({
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                        <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '-.01em', textDecoration: strike, color: e.status === 'washing' ? color.ok : e.status === 'waiting' ? color.gold : color.textPrimary }}>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '-.01em', textDecoration: strike, color: e.status === 'washing' ? color.ok : e.status === 'waiting' || e.status === 'pending' ? color.gold : color.textPrimary }}>
                           {e.ticket}
                         </span>
                         {e.source === 'manual' && (

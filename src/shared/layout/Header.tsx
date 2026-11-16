@@ -8,6 +8,7 @@ import {
   ConfirmDialog,
   LogoMark,
 } from 'q-wash-shared';
+import { PendingBell } from '../../features/booking-confirm/PendingParts';
 import { useAcceptingToggle } from './useAcceptingToggle';
 
 export interface HeaderProps {
@@ -56,6 +57,7 @@ export function Header({ point }: HeaderProps) {
         </div>
   
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '0 0 auto' }}>
+          <PendingBell />
           {canToggle && (
             <div
               onClick={toggle}

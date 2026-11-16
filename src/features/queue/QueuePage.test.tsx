@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QueueDayItem, User } from 'q-wash-shared';
+import { MemoryRouter } from 'react-router-dom';
+import { PendingBookingsProvider } from '../booking-confirm/usePendingBookings';
 import { QueuePage } from './QueuePage';
 import { buildDays, toIsoAt } from './queueModel';
 
@@ -15,13 +17,16 @@ const getOverflowSlots = vi.fn();
 const createManualBooking = vi.fn();
 const updateBookingStatus = vi.fn();
 const cancelBooking = vi.fn();
+const confirmBooking = vi.fn();
+const rejectBooking = vi.fn();
+let userRole: User['role'] = 'staff';
 let mobile = false;
 
 vi.mock('q-wash-shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('q-wash-shared')>();
   return {
     ...actual,
-    useAuth: () => ({ status: 'authenticated', user: fakeUser }),
+    useAuth: () => ({ status: 'authenticated', user: { ...fakeUser, role: userRole } }),
     useIsMobile: () => mobile,
     subscribeToBoardEvents: () => () => {},
     listQueueDay: (...a: unknown[]) => listQueueDay(...a),
@@ -33,6 +38,8 @@ vi.mock('q-wash-shared', async (importOriginal) => {
     createManualBooking: (...a: unknown[]) => createManualBooking(...a),
     updateBookingStatus: (...a: unknown[]) => updateBookingStatus(...a),
     cancelBooking: (...a: unknown[]) => cancelBooking(...a),
+    confirmBooking: (...a: unknown[]) => confirmBooking(...a),
+    rejectBooking: (...a: unknown[]) => rejectBooking(...a),
   };
 });
 
@@ -66,17 +73,21 @@ function item(over: Partial<QueueDayItem> = {}): QueueDayItem {
 const goNext = () => userEvent.click(screen.getByRole('button', { name: 'Далее' }));
 const pickService = (name: RegExp) => userEvent.click(screen.getByRole('button', { name }));
 
-function renderPage() {
+function renderPage(opts: { withPending?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const page = <QueuePage />;
   return render(
     <QueryClientProvider client={client}>
-      <QueuePage />
+      <MemoryRouter>{opts.withPending ? <PendingBookingsProvider>{page}</PendingBookingsProvider> : page}</MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
   mobile = false;
+  userRole = 'staff';
+  confirmBooking.mockResolvedValue({});
+  rejectBooking.mockResolvedValue({});
   listQueueDay.mockResolvedValue({ items: [item()] });
   listBoxes.mockResolvedValue({
     items: [
@@ -167,6 +178,49 @@ describe('QueuePage (desktop)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'A-11 Toyota Camry' }));
     await userEvent.click(screen.getByRole('button', { name: 'Отменить запись' }));
     await waitFor(() => expect(cancelBooking).toHaveBeenCalledWith('b1'));
+  });
+
+  it('confirms a pending booking from the details panel', async () => {
+    listQueueDay.mockResolvedValue({ items: [item({ status: 'pending' })] });
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'A-11 Toyota Camry' }));
+    expect(screen.getByText('Ждёт подтверждения', { selector: 'span,div' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить запись' }));
+    await waitFor(() => expect(confirmBooking).toHaveBeenCalledWith('b1'));
+    expect(updateBookingStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects a pending booking', async () => {
+    listQueueDay.mockResolvedValue({ items: [item({ status: 'pending' })] });
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'A-11 Toyota Camry' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Отклонить' }));
+    await waitFor(() => expect(rejectBooking).toHaveBeenCalledWith('b1'));
+  });
+
+  it('a worker sees a pending booking but cannot confirm or reject it', async () => {
+    userRole = 'worker';
+    listQueueDay.mockResolvedValue({ items: [item({ status: 'pending' })] });
+    renderPage({ withPending: true });
+    await userEvent.click(await screen.findByRole('button', { name: 'A-11 Toyota Camry' }));
+    expect(screen.queryByRole('button', { name: 'Подтвердить запись' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Подтвердить все' })).not.toBeInTheDocument();
+  });
+
+  it('shows the pending banner with a confirm-all that confirms every waiting booking', async () => {
+    listQueueDay.mockImplementation(async (_wp: string, date: string) => ({
+      items:
+        date === today
+          ? [item({ id: 'b1', status: 'pending' }), item({ id: 'b2', ticket: 'A-12', status: 'pending', scheduled_start_at: toIsoAt(today, 12 * 60), scheduled_end_at: toIsoAt(today, 12 * 60 + 30) })]
+          : [],
+    }));
+    renderPage({ withPending: true });
+    expect(await screen.findByText('2 записи ждут вашего подтверждения')).toBeInTheDocument();
+    expect(screen.getByText(/2 ждут подтверждения/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить все' }));
+    await waitFor(() => expect(confirmBooking).toHaveBeenCalledTimes(2));
+    expect(confirmBooking).toHaveBeenCalledWith('b1');
+    expect(confirmBooking).toHaveBeenCalledWith('b2');
   });
 
   it('offers "Вернуть в очередь" for a no-show', async () => {

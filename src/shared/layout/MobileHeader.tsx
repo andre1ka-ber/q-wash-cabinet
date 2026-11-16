@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { authStore, color, ConfirmDialog, font, radius, useAuth, type WashingPoint } from 'q-wash-shared';
+import { PendingBell } from '../../features/booking-confirm/PendingParts';
 import { dateKey } from '../../features/queue/queueModel';
 import { useQueueDay } from '../../features/queue/useQueueDay';
 import { useMyWashingPointId } from '../useMyWashingPoint';
@@ -57,6 +58,7 @@ export function MobileHeader({ point }: { point: WashingPoint | undefined }) {
               {point?.name ?? '…'}
             </div>
           </div>
+          <PendingBell mobile />
           {accepting.canToggle && (
             <div
               onClick={accepting.toggle}

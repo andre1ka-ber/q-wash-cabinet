@@ -812,3 +812,12 @@ See `PLAN.md` for the full plan and build order.
   bookings use the usual actions (приезд / начать / завершить мойку) in place — the design's «Взять в Бокс N» is
   intentionally not built (decided with the user: no move to a real box). Ticket prefix is the API's `O-` (design shows `X-`).
   `tsc -b`, `oxlint`, `vitest run` (134/134), `vite build` clean; not checked in a browser.
+
+- 2026-11-16 — Manual booking confirmation (design: Car Wash Web Apps, «Настройки» + bell). `pending` bookings render striped yellow
+  «Ждёт подтверждения» in the timeline/mobile list; the details panel offers «Подтвердить запись» / «Отклонить» (`confirmBooking`/`rejectBooking`;
+  workers see them view-only). `features/booking-confirm`: `PendingBookingsProvider` (shell-level; reads today+6 days via the shared `queue-day`
+  cache, SSE + 30 s poll) feeds a header bell with unread badge + panel (confirm / reject / «В очереди» jumps to the day and selects the booking),
+  a toast for bookings that arrive after load, and a queue banner with «Подтвердить все» (N sequential confirm calls, failures counted not fatal).
+  New «Настройки» tab (`/settings`): toggle `require_confirmation` via `PATCH /washing-points/{id}` with the design's client/cabinet copy and a
+  leftover-pending banner when turned off. Unread state is per point in localStorage. Summary adds «N ждут подтверждения».
+  Needs `q-wash-api` migration 000031. `tsc -b`, `oxlint`, `vitest run` (146/146), `vite build` clean; admin/worker/display still typecheck and pass; not checked in a browser.

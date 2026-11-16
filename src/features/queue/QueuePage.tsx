@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, cancelBooking, color, getSchedule, listBoxes, PrimaryButton, updateBookingStatus, useIsMobile, type QueueDayItem } from 'q-wash-shared';
+import { ApiError, cancelBooking, color, confirmBooking, getSchedule, listBoxes, PrimaryButton, rejectBooking, updateBookingStatus, useAuth, useIsMobile, type QueueDayItem } from 'q-wash-shared';
 import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
 import { StickyBar, StickyButton } from '../../shared/layout/StickyBar';
+import { PendingBanner, type QueueLocationState } from '../booking-confirm/PendingParts';
+import type { PendingEntry } from '../booking-confirm/usePendingBookings';
 import { MobileList } from './MobileList';
 import { BookingDetails, BottomSheet, DayStrip, ManualForm, Toast } from './QueueParts';
 import { Timeline } from './Timeline';
@@ -28,6 +31,8 @@ interface FormState {
 export function QueuePage() {
   const washingPointId = useMyWashingPointId();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const canDecide = user?.role !== 'worker';
   const queryClient = useQueryClient();
 
   const [now, setNow] = useState(() => new Date());
@@ -61,9 +66,34 @@ export function QueuePage() {
 
   const selected = items.find((e) => e.id === selectedId) ?? null;
 
+  // Jump to a booking (from the bell, toast or banner): its day, selected.
+  function showEntry(e: PendingEntry) {
+    setDayKey(e.day);
+    setSelectedId(e.item.id);
+    setForm(null);
+    setActionError(null);
+  }
+  const location = useLocation();
+  const jump = location.state as QueueLocationState | null;
+  useEffect(() => {
+    if (jump?.day && jump.id) {
+      setDayKey(jump.day);
+      setSelectedId(jump.id);
+      setForm(null);
+      setActionError(null);
+    }
+    // Only when a new navigation (location.key) carries a target.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
+
   const actionMutation = useMutation({
-    mutationFn: (v: { id: string; action: BookingAction }) =>
-      v.action.run.type === 'cancel' ? cancelBooking(v.id) : updateBookingStatus(v.id, v.action.run.status),
+    mutationFn: (v: { id: string; action: BookingAction }) => {
+      const run = v.action.run;
+      if (run.type === 'cancel') return cancelBooking(v.id);
+      if (run.type === 'confirm') return confirmBooking(v.id);
+      if (run.type === 'reject') return rejectBooking(v.id);
+      return updateBookingStatus(v.id, run.status);
+    },
     onSuccess: () => {
       setActionError(null);
       void queryClient.invalidateQueries({ queryKey: queueDayKey(washingPointId) });
@@ -105,6 +135,7 @@ export function QueuePage() {
     <BookingDetails
       item={selected}
       rel={day.rel}
+      canDecide={canDecide}
       pending={actionMutation.isPending}
       error={actionError}
       onAction={(action) => actionMutation.mutate({ id: selected.id, action })}
@@ -154,6 +185,7 @@ export function QueuePage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {header}
         <DayStrip days={days} selected={dayKey} onPick={pickDay} compact />
+        <PendingBanner onShow={showEntry} />
         {loadError}
         <div style={{ color: color.textTertiary, fontSize: 12, lineHeight: 1.5 }}>{summary}</div>
         {dayQuery.isLoading ? (
@@ -201,6 +233,7 @@ export function QueuePage() {
           </PrimaryButton>
         )}
       </div>
+      <PendingBanner onShow={showEntry} />
       {loadError}
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
         {dayQuery.isLoading || boxesQuery.isLoading ? (

@@ -28,6 +28,13 @@ export const NAV_ITEMS: NavItem[] = [
     mobileLabel: 'Фото и описание',
     icon: 'M4 7h3l2-2h6l2 2h3v12H4V7ZM12 10a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z',
   },
+  {
+    key: 'settings',
+    to: '/settings',
+    label: 'Настройки',
+    mobileLabel: 'Настройки',
+    icon: 'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7ZM19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.4-2.3.9a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.4 2.3-.9a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.3.9 2-3.4-2-1.5Z',
+  },
   { key: 'reports', to: '/reports', label: 'Отчёты', mobileLabel: 'Отчёты', icon: 'M5 20V11M12 20V5M19 20v-6' },
   { key: 'qrCode', to: '/qr-code', label: 'QR-код', mobileLabel: 'QR-код', icon: 'M4 4h6v6H4V4ZM14 4h6v6h-6V4ZM4 14h6v6H4v-6ZM14 14h3v3h-3v-3ZM20 14v6h-3' },
   {

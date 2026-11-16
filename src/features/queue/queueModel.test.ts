@@ -25,6 +25,12 @@ describe('actionsFor', () => {
     expect(labels('queue', 'today')).toEqual(['Отметить приезд', 'Не приехал', 'Отменить запись']);
     expect(labels('queue', 'future')).toEqual(['Отменить запись']);
   });
+  it('offers confirm/reject for a pending booking, and nothing to a worker or on a past day', () => {
+    expect(labels('pending', 'today')).toEqual(['Подтвердить запись', 'Отклонить']);
+    expect(labels('pending', 'future')).toEqual(['Подтвердить запись', 'Отклонить']);
+    expect(actionsFor('pending', 'today', false)).toEqual([]);
+    expect(labels('pending', 'past')).toEqual([]);
+  });
   it('walks the wash lifecycle', () => {
     expect(labels('waiting', 'today')).toEqual(['Начать мойку', 'Не приехал', 'Отменить запись']);
     expect(labels('washing', 'today')).toEqual(['Завершить мойку']);

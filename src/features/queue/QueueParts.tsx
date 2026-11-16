@@ -213,6 +213,7 @@ function actionStyle(disabled: boolean): CSSProperties {
 export function BookingDetails({
   item,
   rel,
+  canDecide = true,
   pending,
   error,
   onAction,
@@ -221,6 +222,7 @@ export function BookingDetails({
 }: {
   item: QueueDayItem;
   rel: DayInfo['rel'];
+  canDecide?: boolean;
   pending: boolean;
   error: string | null;
   onAction: (a: BookingAction) => void;
@@ -228,7 +230,7 @@ export function BookingDetails({
   padding: string;
 }) {
   const meta = STATUS_META[item.status];
-  const actions = actionsFor(item.status, rel);
+  const actions = actionsFor(item.status, rel, canDecide);
   const rows: [string, string][] = [
     ['Авто', item.car_name || '—'],
     ['Госномер', item.plate || '—'],
@@ -286,7 +288,7 @@ export function BookingDetails({
         })}
         {actions.length === 0 && (
           <div style={{ padding: 12, borderRadius: 12, background: color.panelAlt, color: color.textTertiary, fontSize: 12.5, textAlign: 'center' }}>
-            {rel === 'past' ? 'Прошедший день — только просмотр' : 'Запись завершена'}
+            {rel === 'past' ? 'Прошедший день — только просмотр' : item.status === 'pending' ? 'Ждёт подтверждения администратора мойки' : 'Запись завершена'}
           </div>
         )}
       </div>
