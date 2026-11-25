@@ -821,3 +821,5 @@ See `PLAN.md` for the full plan and build order.
   New «Настройки» tab (`/settings`): toggle `require_confirmation` via `PATCH /washing-points/{id}` with the design's client/cabinet copy and a
   leftover-pending banner when turned off. Unread state is per point in localStorage. Summary adds «N ждут подтверждения».
   Needs `q-wash-api` migration 000031. `tsc -b`, `oxlint`, `vitest run` (146/146), `vite build` clean; admin/worker/display still typecheck and pass; not checked in a browser.
+
+- 2026-11-25 — Security: «Безопасность» manages the `display` login (create/reset); the signed-in staff account has no reset button (use the password form; the API now needs the current password).

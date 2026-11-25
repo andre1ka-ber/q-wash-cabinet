@@ -7,6 +7,7 @@ import { SecurityPage } from './SecurityPage';
 
 const getWashingPointCredentials = vi.fn();
 const resetWashingPointCredentials = vi.fn();
+const createWashingPointCredentials = vi.fn();
 const changeOwnPassword = vi.fn();
 const setTokens = vi.fn();
 
@@ -17,6 +18,7 @@ vi.mock('q-wash-shared', async (importOriginal) => {
     useAuth: () => ({ status: 'authenticated', user: fakeUser }),
     getWashingPointCredentials: (...a: unknown[]) => getWashingPointCredentials(...a),
     resetWashingPointCredentials: (...a: unknown[]) => resetWashingPointCredentials(...a),
+    createWashingPointCredentials: (...a: unknown[]) => createWashingPointCredentials(...a),
     changeOwnPassword: (...a: unknown[]) => changeOwnPassword(...a),
     tokenStorage: { setTokens: (...a: unknown[]) => setTokens(...a) },
   };
@@ -46,7 +48,7 @@ async function fillPasswordForm(user: ReturnType<typeof userEvent.setup>) {
 
 describe('SecurityPage', () => {
   it('shows the staff and worker usernames', async () => {
-    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' }, display: { username: 'pegasus-display' } });
     renderPage();
 
     expect(await screen.findByText('pegasus')).toBeInTheDocument();
@@ -55,19 +57,33 @@ describe('SecurityPage', () => {
   });
 
   it('resetting a role reveals the new password once and does not touch the other row', async () => {
-    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' }, display: { username: 'pegasus-display' } });
     resetWashingPointCredentials.mockResolvedValue({ username: 'pegasus-worker', password: 'nEwPass789' });
     const user = userEvent.setup();
     renderPage();
     await screen.findByText('pegasus-worker');
 
-    await user.click(screen.getAllByRole('button', { name: 'Сбросить пароль' })[1]!);
+    await user.click(screen.getAllByRole('button', { name: 'Сбросить пароль' })[0]!);
+    expect(screen.getAllByRole('button', { name: 'Сбросить пароль' })).toHaveLength(2);
 
     await waitFor(() => expect(resetWashingPointCredentials).toHaveBeenCalledWith('wp-1', 'worker'));
     expect(await screen.findByText('nEwPass789')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Я сохранил(а) данные' }));
     expect(screen.queryByText('nEwPass789')).not.toBeInTheDocument();
+  });
+
+  it('offers to create the missing screen account and reveals its password', async () => {
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: null, display: null });
+    createWashingPointCredentials.mockResolvedValue({ username: 'pegasus-display', password: 'sCreen123' });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Создать аккаунт экрана' }));
+
+    await waitFor(() => expect(createWashingPointCredentials).toHaveBeenCalledWith('wp-1', 'display'));
+    expect(await screen.findByText('sCreen123')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Сбросить пароль' })).not.toBeInTheDocument();
   });
 
   it('shows an error if loading credentials fails', async () => {
@@ -77,7 +93,7 @@ describe('SecurityPage', () => {
   });
 
   it('shows the API message if a reset fails', async () => {
-    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' }, display: { username: 'pegasus-display' } });
     resetWashingPointCredentials.mockRejectedValue(new ApiError('user_not_found', 'нет аккаунта', 404));
     const user = userEvent.setup();
     renderPage();
@@ -89,7 +105,7 @@ describe('SecurityPage', () => {
   });
 
   it('changing the password calls the real endpoint, stores the fresh tokens, and clears the form', async () => {
-    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' }, display: { username: 'pegasus-display' } });
     changeOwnPassword.mockResolvedValue({
       access_token: 'new-access', access_token_expires_at: '2026-01-01T00:00:00Z',
       refresh_token: 'new-refresh', refresh_token_expires_at: '2026-02-01T00:00:00Z',
@@ -110,7 +126,7 @@ describe('SecurityPage', () => {
   });
 
   it('shows the API error message when changing the password fails, and does not touch stored tokens', async () => {
-    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' }, display: { username: 'pegasus-display' } });
     changeOwnPassword.mockRejectedValue(new ApiError('invalid_credentials', 'Текущий пароль неверен', 401));
     const user = userEvent.setup();
     renderPage();
@@ -124,7 +140,7 @@ describe('SecurityPage', () => {
   });
 
   it('disables the save button until the new password meets the policy and both copies match', async () => {
-    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' } });
+    getWashingPointCredentials.mockResolvedValue({ staff: { username: 'pegasus' }, worker: { username: 'pegasus-worker' }, display: { username: 'pegasus-display' } });
     const user = userEvent.setup();
     renderPage();
     await screen.findByText('pegasus');

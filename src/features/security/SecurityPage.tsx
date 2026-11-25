@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   color,
   font,
   radius,
   ApiError,
   changeOwnPassword,
+  createWashingPointCredentials,
   getWashingPointCredentials,
   resetWashingPointCredentials,
   tokenStorage,
@@ -14,13 +15,13 @@ import {
   CredentialsRevealModal,
   useIsMobile,
 } from 'q-wash-shared';
+import type { PointAccountRole } from 'q-wash-shared';
 import { useMyWashingPointId } from '../../shared/useMyWashingPoint';
 
-type Role = 'staff' | 'worker';
-
-const ROLE_LABEL: Record<Role, string> = {
+const ROLE_LABEL: Record<PointAccountRole, string> = {
   staff: 'Кабинет мойки',
   worker: 'Работник (очередь)',
+  display: 'Экран очереди',
 };
 
 const inputStyle = {
@@ -46,10 +47,11 @@ function AccountCard({
   onReset,
   resetting,
 }: {
-  role: Role;
+  role: PointAccountRole;
   username: string;
-  onReset: () => void;
-  resetting: boolean;
+  /** Absent for the signed-in staff account, whose password is changed with the form alongside. */
+  onReset?: () => void;
+  resetting?: boolean;
 }) {
   return (
     <div
@@ -103,9 +105,11 @@ function AccountCard({
           {username}
         </span>
       </div>
-      <GhostButton type="button" onClick={onReset} disabled={resetting} style={{ alignSelf: 'flex-start' }}>
-        {resetting ? 'Сбрасываем…' : 'Сбросить пароль'}
-      </GhostButton>
+      {onReset && (
+        <GhostButton type="button" onClick={onReset} disabled={resetting} style={{ alignSelf: 'flex-start' }}>
+          {resetting ? 'Сбрасываем…' : 'Сбросить пароль'}
+        </GhostButton>
+      )}
       <div style={{ color: color.textFaint, fontSize: 11.5, lineHeight: 1.5 }}>
         Логин выдаёт администратор Q Wash и изменить его нельзя.
       </div>
@@ -315,10 +319,10 @@ function PasswordChangeCard() {
   );
 }
 
-// Login credentials for this point's two auto-provisioned accounts (staff
-// for this cabinet, worker for the worker app) — usernames only, never
-// passwords (only ever visible once, at creation or right after a reset —
-// see q-wash-api/docs/API.md's "Washing point credentials"). Both roles
+// Login credentials for this point's accounts (staff for this cabinet,
+// worker for the worker app, display for the lobby screen) — usernames only,
+// never passwords (only ever visible once, at creation or right after a reset
+// — see q-wash-api/docs/API.md's "Washing point credentials"). All roles
 // share the point's own /washing-points/{id}/credentials endpoint (staff
 // may only act on their own point, same restriction as every other tab
 // here).
@@ -326,7 +330,8 @@ export function SecurityPage() {
   const isMobile = useIsMobile();
   const washingPointId = useMyWashingPointId();
   const [error, setError] = useState<string | null>(null);
-  const [reveal, setReveal] = useState<{ role: Role; username: string; password: string } | null>(null);
+  const [reveal, setReveal] = useState<{ title: string; role: PointAccountRole; username: string; password: string } | null>(null);
+  const queryClient = useQueryClient();
 
   const credentialsQuery = useQuery({
     queryKey: ['cabinet', 'credentials', washingPointId],
@@ -334,12 +339,22 @@ export function SecurityPage() {
   });
 
   const resetMutation = useMutation({
-    mutationFn: (role: Role) => resetWashingPointCredentials(washingPointId, role),
+    mutationFn: (role: PointAccountRole) => resetWashingPointCredentials(washingPointId, role),
     onSuccess: (credential, role) => {
       setError(null);
-      setReveal({ role, ...credential });
+      setReveal({ title: 'Пароль сброшен', role, ...credential });
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : 'Не удалось сбросить пароль'),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (role: PointAccountRole) => createWashingPointCredentials(washingPointId, role),
+    onSuccess: (credential, role) => {
+      setError(null);
+      setReveal({ title: 'Аккаунт создан', role, ...credential });
+      void queryClient.invalidateQueries({ queryKey: ['cabinet', 'credentials', washingPointId] });
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'Не удалось создать аккаунт'),
   });
 
   return (
@@ -362,12 +377,7 @@ export function SecurityPage() {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {credentialsQuery.data.staff && (
-              <AccountCard
-                role="staff"
-                username={credentialsQuery.data.staff.username}
-                onReset={() => resetMutation.mutate('staff')}
-                resetting={resetMutation.isPending && resetMutation.variables === 'staff'}
-              />
+              <AccountCard role="staff" username={credentialsQuery.data.staff.username} />
             )}
             {credentialsQuery.data.worker && (
               <AccountCard
@@ -377,6 +387,23 @@ export function SecurityPage() {
                 resetting={resetMutation.isPending && resetMutation.variables === 'worker'}
               />
             )}
+            {credentialsQuery.data.display ? (
+              <AccountCard
+                role="display"
+                username={credentialsQuery.data.display.username}
+                onReset={() => resetMutation.mutate('display')}
+                resetting={resetMutation.isPending && resetMutation.variables === 'display'}
+              />
+            ) : (
+              <GhostButton
+                type="button"
+                onClick={() => createMutation.mutate('display')}
+                disabled={createMutation.isPending}
+                style={{ alignSelf: 'flex-start' }}
+              >
+                {createMutation.isPending ? 'Создаём…' : 'Создать аккаунт экрана'}
+              </GhostButton>
+            )}
           </div>
           <PasswordChangeCard />
         </div>
@@ -384,7 +411,7 @@ export function SecurityPage() {
 
       {reveal && (
         <CredentialsRevealModal
-          title="Пароль сброшен"
+          title={reveal.title}
           items={[{ label: ROLE_LABEL[reveal.role], username: reveal.username, password: reveal.password }]}
           onClose={() => setReveal(null)}
         />
